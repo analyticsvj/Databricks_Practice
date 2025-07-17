@@ -1,0 +1,46 @@
+As a DPS run and maintain team member (or PET implementation team member), I would like to configure and/or onboard new datasets for PET Pass 1 transformations, so that I can configure all active datasets (in scope) and schedule them to run and apply Domain-0 transformations.
+
+Library: pet_domain0_transformations_config
+
+Function: LoadConfigurationsForDataset()
+
+Parameters: (dataset-id, file-path, overwrite)
+
+Actions
+Do all validations
+Is the dataset-id valid and unique if not to be overwritten?
+Does the file exist and accessible to the runtime? Is that an Excel file input?
+Are there necessary tabs in the excel sheet?
+Does the dataset-id in parameter match the dataset-id (external ID) in the file?
+Are all the input/config entries to be read/necessary exist in the file?
+Are all the config entry values are in correct data format?
+Is the dataset name unique for different/new IDs?
+Any more needed?
+If last_process_datetime was not configured already the initialisation date must exist, unless full refresh.
+Required configurations to validate?
+Specification Sheet
+Dataset ID (ExternalID)
+Dataset Name
+DPS-CDP Params
+PET Dataset ID
+DPS Database Name
+Data Load Method: Incremental / Full Refresh
+Incremental Timestamp Method: Timestamp in Header Table / Timestamp in Individual Tables
+Incremental Timestamp Field: {field-name} (if there are multiple tables needs treated, its assumed that this field will exist in all tables)
+Incremental Header to Tables Link Field: {Header-Link-ID-field-name} (header_table_name.header_primary_key)
+Schedule: Hourly, Daily, Weekly, Monthly
+Frequency: # (every number of hours to run or every number of days to run)
+Week Days: Monday, Wednesday (allow for multiple days)
+Days of the Month: #, # (must be <= 28)
+Dataset owner
+Fetch and initialise only from spreadsheet{}: last_process_datetime (if this field already has a value don't update), for the first time, validate this datetime field, if not provided don't process.
+Additional timestamp fields required for process control:
+last_run_time: datetime when the dataset process was run last
+next_run_due_time: datetime when this dataset process is due to run next
+last_process_datetime: the max value of the incremental datetime field that was process last, so that next run can pick data after that time.
+Validate all necessary database, tables, fields, incremental fields, all exist as per configuration.
+Configure the dataset/database parameters
+Configure the schedule for controller
+Configure tables and fields for data fetch
+Initialise the last-run-datetime and next-run-datetime as null for new datasets, leave as current values for existing datasets
+Stories related to pet_domain0_transformations_config job will be created under this epic, to implement above actions.

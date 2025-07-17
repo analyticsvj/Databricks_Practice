@@ -1,0 +1,239 @@
+!pip install openpyxl==3.0.10
+
+from datetime import datetime
+import os
+import pandas as pd
+import logging
+from openpyxl import load_workbook
+from pyspark.sql import SparkSession, Row
+from pyspark.sql.types import *
+from pyspark.sql.window import Window
+from pyspark.sql.functions import row_number, col, lit
+import re
+
+# Logging setup
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("PETFileLoader")
+
+class PETFileLoader:
+    def __init__(self, spark: SparkSession):
+        self.spark = spark
+
+    @staticmethod
+    def validate_required_sheets(sheetnames: list):
+        required_sheets = {"Specification", "Input Fields", "DPS-CDP Params"}
+        missing = required_sheets - set(sheetnames)
+        if missing:
+            raise ValueError(f"❌ Missing required sheets: {missing}")
+        return True
+
+    @staticmethod
+    def validate_specification_format(spec_sheet):
+        expected_keys = [
+            "Source Tenant", "Dataset Name", "Data Sharing Agreement (DSA)", "Purpose",
+            "Privacy Domain - Encryption Key", "Destination Tenant", "ExternalID",
+            "Allow Missing Table", "Priority", "Policy"
+        ]
+        spec_rows = list(spec_sheet.iter_rows(min_row=1, max_row=10, max_col=2, values_only=True))
+        if len(spec_rows) < 10:
+            raise ValueError(f"❌ Specification sheet must contain 10 rows, found {len(spec_rows)}.")
+        for i, expected_key in enumerate(expected_keys):
+            actual_key, actual_value = spec_rows[i]
+            if actual_key != expected_key:
+                raise ValueError(f"❌ Row {i+1} label mismatch: expected '{expected_key}', found '{actual_key}'")
+            if actual_value is None or str(actual_value).strip() == "":
+                raise ValueError(f"❌ Row {i+1} value for '{expected_key}' is missing or empty.")
+
+    @staticmethod
+    def validate_input_fields(input_fields_df):
+        if input_fields_df.columns.tolist()[:2] != ["Table Name", "Column Name"]:
+            raise ValueError(f"❌ Input Fields sheet must begin with 'Table Name' and 'Column Name'. Found: {input_fields_df.columns.tolist()[:2]}")
+        if input_fields_df.shape[0] < 1:
+            raise ValueError("❌ Input Fields sheet must contain more than 1 row.")
+        for i, row in input_fields_df.iterrows():
+            if not str(row["Column Name"]).strip():
+                raise ValueError(f"❌ Missing Column Name in row {i+2}")
+
+    def download_to_tmp(self, source_path: str) -> str:
+        filename = os.path.basename(source_path)
+        dbfs_target = f"dbfs:/tmp/{filename}"
+        print(f"📥 Copying {source_path} → {dbfs_target}")
+        dbutils.fs.cp(source_path, dbfs_target, recurse=False)
+        return f"/dbfs/tmp/{filename}"
+
+    def validate_dps_cdp_params(self, param_data: dict, db_name: str):
+        load_type = param_data["load_type"].upper()
+        schedule = param_data.get("schedule")
+        week_days = param_data.get("week_days")
+        dates_of_month = param_data.get("dates_of_month")
+
+        if load_type not in {"INCREMENTAL", "FULL"}:
+            raise ValueError("❌ load_type must be 'INCREMENTAL' or 'FULL'")
+
+        if load_type == "INCREMENTAL":
+            if not param_data["incremental_timestamp_field"]:
+                raise ValueError("❌ incremental_timestamp_field must not be empty for INCREMENTAL load")
+            if schedule and schedule.upper() == "DAILY":
+                if not dates_of_month:
+                    raise ValueError("❌ dates_of_month is required for DAILY schedule")
+                if week_days:
+                    raise ValueError("❌ week_days must be empty for DAILY schedule")
+            elif schedule and schedule.upper() == "WEEKLY":
+                if not week_days:
+                    raise ValueError("❌ week_days is required for WEEKLY schedule")
+                if dates_of_month:
+                    raise ValueError("❌ dates_of_month must be empty for WEEKLY schedule")
+        else:
+            if param_data["incremental_timestamp_field"] or param_data.get("incremental_header_to_tables_link_field") or schedule or week_days or dates_of_month:
+                raise ValueError("❌ For FULL load, incremental_timestamp_field, incremental_header_to_tables_link_field, schedule, week_days, and dates_of_month must be empty")
+
+        if not param_data["pet_dataset_id"]:
+            raise ValueError("❌ pet_dataset_id is required")
+
+        method = param_data["incremental_timestamp_method"]
+        if method.upper() not in {"TIMESTAMP_HEADER_TABLE", "TIMESTAMP_DATA_TABLE"}:
+            raise ValueError("❌ incremental_timestamp_method must be 'timestamp_header_table' or 'timestamp_data_table'")
+
+        if method.lower() == "timestamp_header_table":
+            value = param_data.get("incremental_header_to_tables_link_field")
+            if not value or "." not in value:
+                raise ValueError("❌ incremental_header_to_tables_link_field must be in '<table>.<field>' format")
+            table, field = value.split(".", 1)
+            table_exists = self.spark.sql(f"SHOW TABLES IN {db_name}").filter(f"tableName = '{table}'").count() > 0
+            if not table_exists:
+                raise ValueError(f"❌ Table '{table}' not found in database '{db_name}'")
+            schema_fields = [f.name for f in self.spark.table(f"{db_name}.{table}").schema.fields]
+            if field not in schema_fields:
+                raise ValueError(f"❌ Field '{field}' not found in table '{db_name}.{table}'")
+
+        if schedule and schedule.capitalize() not in {"Daily", "Weekly", "Monthly"}:
+            raise ValueError("❌ schedule must be one of: Daily, Weekly, Monthly")
+
+        if week_days:
+            valid_days = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}
+            given_days = {day.strip().capitalize() for day in week_days.split(",")}
+            invalid = given_days - valid_days
+            if invalid:
+                raise ValueError(f"❌ Invalid week_days: {invalid}")
+
+        if dates_of_month:
+            values = dates_of_month.split(",")
+            for val in values:
+                if not val.strip().isdigit() or not (1 <= int(val.strip()) <= 28):
+                    raise ValueError(f"❌ dates_of_month must be between 1 and 28. Invalid: {val.strip()}")
+
+    def LoadConfigurationsForDataset(self, dataset_id: str, source_file_path: str, overwrite: bool = False):
+        print("⚙️ Starting configuration load...")
+        local_path = self.download_to_tmp(source_file_path)
+        try:
+            wb = load_workbook(local_path, data_only=True)
+            self.validate_required_sheets(wb.sheetnames)
+            self.validate_specification_format(wb["Specification"])
+
+            spec = wb["Specification"]
+            dataset_name = str(spec["B2"].value).strip()
+            dataset_id_file = str(spec["B7"].value).strip().upper()
+            if dataset_id_file != dataset_id.upper():
+                raise ValueError(f"❌ Dataset ID mismatch: parameter '{dataset_id}' vs file '{dataset_id_file}'")
+
+            params = wb["DPS-CDP Params"]
+            param_data = {}
+            for row in params.iter_rows(min_row=2, max_row=15, max_col=2, values_only=True):
+                key, value = row
+                if key:
+                    param_data[key.strip().lower()] = str(value).strip() if value is not None else None
+
+            db_name = param_data.get("database_name")
+            if not db_name:
+                raise ValueError("❌ 'database_name' is missing in DPS-CDP Params.")
+
+            existing_dbs = [row.databaseName.lower() for row in self.spark.sql("SHOW DATABASES").collect()]
+            if db_name.lower() not in existing_dbs:
+                raise ValueError(f"❌ Hive database '{db_name}' does not exist in the current Databricks metastore.")
+
+            self.validate_dps_cdp_params(param_data, db_name)
+
+            input_fields_df = pd.read_excel(local_path, sheet_name="Input Fields", engine="openpyxl")
+            input_fields_df = input_fields_df.iloc[:, :2].dropna(how="all")
+            input_fields_df.columns = [col.strip() for col in input_fields_df.columns]
+            self.validate_input_fields(input_fields_df)
+
+            for i, row in input_fields_df.iterrows():
+                table = str(row["Table Name"]).strip()
+                column = str(row["Column Name"]).strip()
+                full_table_name = f"{db_name}.{table}"
+                table_exists = self.spark.sql(f"SHOW TABLES IN {db_name}").filter(f"tableName = '{table}'").count() > 0
+                if not table_exists:
+                    raise ValueError(f"❌ Table '{table}' not found in database '{db_name}'")
+                table_schema = [f.name for f in self.spark.table(full_table_name).schema.fields]
+                if column not in table_schema:
+                    raise ValueError(f"❌ Column '{column}' not found in table '{full_table_name}'. Found columns: {table_schema}")
+
+            if self.spark.sql(f"SELECT * FROM PET.CTRL_dataset_config WHERE dataset_id = '{dataset_id}'").count() > 0:
+                if not overwrite:
+                    raise Exception(f"❌ Dataset {dataset_id} already exists. Use overwrite=True to reconfigure.")
+                else:
+                    self.spark.sql(f"DELETE FROM PET.CTRL_dataset_config WHERE dataset_id = '{dataset_id}'")
+                    self.spark.sql(f"DELETE FROM PET.CTRL_dataset_input_fields WHERE dataset_id = '{dataset_id}'")
+
+            now = datetime.now()
+            dataset_row = Row(
+                dataset_id=dataset_id,
+                dataset_name=dataset_name,
+                source_database_name=param_data["database_name"],
+                load_type=param_data["load_type"],
+                is_enabled=True,
+                pet_dataset_id=param_data["pet_dataset_id"],
+                incremental_timestamp_method=param_data["incremental_timestamp_method"],
+                incremental_timestamp_field=param_data["incremental_timestamp_field"],
+                incremental_header_to_tables_link_field=param_data.get("incremental_header_to_tables_link_field"),
+                schedule=param_data.get("schedule"),
+                week_days=param_data.get("week_days"),
+                dates_of_month=param_data.get("dates_of_month"),
+                dataset_owner=param_data["dataset_owner"],
+                modified_date=now,
+                dataset_modified_by_user=dbutils.notebook.entry_point.getDbutils().notebook().getContext().tags().apply('user'),
+                comments=param_data.get("comments")
+            )
+
+            config_schema = StructType([
+                StructField("dataset_id", StringType(), False),
+                StructField("dataset_name", StringType(), False),
+                StructField("source_database_name", StringType(), False),
+                StructField("load_type", StringType(), False),
+                StructField("is_enabled", BooleanType(), False),
+                StructField("pet_dataset_id", StringType(), False),
+                StructField("incremental_timestamp_method", StringType(), True),
+                StructField("incremental_timestamp_field", StringType(), True),
+                StructField("incremental_header_to_tables_link_field", StringType(), True),
+                StructField("schedule", StringType(), True),
+                StructField("week_days", StringType(), True),
+                StructField("dates_of_month", StringType(), True),
+                StructField("dataset_owner", StringType(), False),
+                StructField("modified_date", TimestampType(), False),
+                StructField("dataset_modified_by_user", StringType(), False),
+                StructField("comments", StringType(), True)
+            ])
+
+            self.spark.createDataFrame([dataset_row], config_schema).write.mode("append").saveAsTable("PET.CTRL_dataset_config")
+
+            input_rows = [
+                Row(dataset_id=dataset_id, table_name=row["Table Name"].strip(), field_name=row["Column Name"].strip())
+                for _, row in input_fields_df.iterrows()
+            ]
+
+            input_schema = StructType([
+                StructField("dataset_id", StringType(), False),
+                StructField("table_name", StringType(), False),
+                StructField("field_name", StringType(), False)
+            ])
+
+            self.spark.createDataFrame(input_rows, input_schema).coalesce(1).write.mode("append").saveAsTable("PET.CTRL_dataset_input_fields")
+            print(f"✅ Successfully onboarded: {dataset_id} | Mode: {param_data['load_type']}")
+
+        finally:
+            if os.path.exists(local_path):
+                try:
+                    os.remove(local_path)
+                except Exception as cleanup_error:
+                    print(f"⚠️ Cleanup failed: {cleanup_error}")

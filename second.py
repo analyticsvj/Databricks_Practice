@@ -14,6 +14,43 @@ class PetDomain0TransformationsConfig:
     def __init__(self, spark: SparkSession):
         self.spark = spark
 
+    def LoadConfigurationsForDataset(self, dataset_id: str, source_file_path: str, overwrite: bool):
+        try:
+            local_path = self.download_to_tmp(source_file_path)
+            wb = load_workbook(local_path, data_only=True)
+            sheetnames = wb.sheetnames
+            self.validate_required_sheets(sheetnames)
+
+            spec_sheet = wb["Specification"]
+            self.validate_specification_format(spec_sheet)
+
+            df_inputs = pd.read_excel(local_path, sheet_name="Input Fields")
+            self.validate_input_fields(df_inputs)
+
+            df_params = pd.read_excel(local_path, sheet_name="DPS-CDP Params")
+            params_dict = dict(zip(df_params.iloc[:, 0], df_params.iloc[:, 1]))
+            db_name = params_dict.get("database_name")
+            self.validate_dps_cdp_params(params_dict, db_name)
+
+            if overwrite:
+                removed = self.remove_existing_dataset(dataset_id)
+                if not removed:
+                    logger.warning("No existing dataset found to remove.")
+
+            dataset_name = spec_sheet["B2"].value
+            if not dataset_name:
+                raise ValueError("Dataset Name is missing in Specification sheet")  # missed validation
+
+            config_written = self.write_dataset_config(dataset_id, dataset_name, params_dict)
+            if not config_written:
+                raise Exception("Failed to write dataset configuration")
+
+            logger.info("Configuration successfully loaded for dataset: %s", dataset_id)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to load configuration for dataset {dataset_id}: {e}")
+            return False
+
     @staticmethod
     def validate_required_sheets(sheetnames):
         required = {"Specification", "Input Fields", "DPS-CDP Params"}
@@ -75,7 +112,6 @@ class PetDomain0TransformationsConfig:
                 if not params.get("incremental_timestamp_field"):
                     raise ValueError("incremental_timestamp_field required for INCREMENTAL load")
 
-                # Missed Validation: Validate correct schedule config based on load_type
                 if sched and sched.upper() == "DAILY":
                     if not dates:
                         raise ValueError("dates_of_month required for DAILY")
@@ -131,10 +167,12 @@ class PetDomain0TransformationsConfig:
 
     def remove_existing_dataset(self, dataset_id):
         try:
+            removed = False
             if self.spark.sql(f"SELECT * FROM PET.CTRL_dataset_config WHERE dataset_id = '{dataset_id}'").count():
                 self.spark.sql(f"DELETE FROM PET.CTRL_dataset_config WHERE dataset_id = '{dataset_id}'")
                 self.spark.sql(f"DELETE FROM PET.CTRL_dataset_input_fields WHERE dataset_id = '{dataset_id}'")
-            return True
+                removed = True
+            return removed
         except Exception as e:
             logger.error(f"Failed to remove existing dataset: {e}")
             return False
@@ -180,7 +218,8 @@ class PetDomain0TransformationsConfig:
                 StructField("comments", StringType(), True)
             ])
 
-            self.spark.createDataFrame([row_obj], schema).write.mode("append").saveAsTable("PET.CTRL_dataset_config")
+            df = self.spark.createDataFrame([row_obj], schema)
+            df.write.mode("append").saveAsTable("PET.CTRL_dataset_config")
             return True
         except Exception as e:
             logger.error(f"Failed to write dataset config: {e}")

@@ -46,12 +46,29 @@ def check_table_and_column_exist(spark: SparkSession, db_name: str, table_name: 
     try:
         if not spark.sql(f"SHOW TABLES IN {db_name}").filter(col("tableName") == table_name).count():
             return False
+        
         df_schema = spark.table(f"{db_name}.{table_name}").schema
-        return any(
-            f.name == column_name or
-            ("." in column_name and column_name.startswith(f.name + "."))
-            for f in df_schema.fields
-        )
+        
+        # Check for direct column match first
+        for field in df_schema.fields:
+            if field.name == column_name:
+                return True
+        
+        # Check for struct field (e.g., meta.event_time)
+        if "." in column_name:
+            parts = column_name.split(".", 1)  # Split only on first dot
+            struct_name = parts[0]
+            nested_field = parts[1]
+            
+            # Find the struct field
+            for field in df_schema.fields:
+                if field.name == struct_name:
+                    # Check if it's a struct type and contains the nested field
+                    if hasattr(field.dataType, 'fields'):  # StructType
+                        return any(nested_f.name == nested_field for nested_f in field.dataType.fields)
+                    break
+        
+        return False
     except Exception as e:
         logger.exception(f"Table/Column check failed: {e}")
         raise

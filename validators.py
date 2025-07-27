@@ -47,18 +47,14 @@ def check_table_and_column_exist(spark: SparkSession, db_name: str, table_name: 
         # Check if table exists
         tables_df = spark.sql(f"SHOW TABLES IN {db_name}")
         if not tables_df.filter(col("tableName") == table_name).count():
-            print(f"DEBUG: Table '{table_name}' not found in database '{db_name}'")
             return False
         
         # Get table schema
         df_schema = spark.table(f"{db_name}.{table_name}").schema
-        print(f"DEBUG: Checking for column '{column_name}' in table '{db_name}.{table_name}'")
-        print(f"DEBUG: Available fields: {[f.name for f in df_schema.fields]}")
         
         # Check for direct column match first (case-insensitive)
         for field in df_schema.fields:
             if field.name.lower() == column_name.lower():
-                print(f"DEBUG: Found direct match: '{field.name}' matches '{column_name}'")
                 return True
         
         # Check for struct field (e.g., meta.event_time)
@@ -66,28 +62,19 @@ def check_table_and_column_exist(spark: SparkSession, db_name: str, table_name: 
             parts = column_name.split(".", 1)  # Split only on first dot
             struct_name = parts[0].lower()
             nested_field = parts[1].lower()
-            print(f"DEBUG: Looking for struct field: struct='{struct_name}', nested='{nested_field}'")
             
             # Find the struct field (case-insensitive)
             for field in df_schema.fields:
                 if field.name.lower() == struct_name:
-                    print(f"DEBUG: Found struct field '{field.name}', type: {field.dataType}")
                     # Check if it's a struct type and contains the nested field
                     if hasattr(field.dataType, 'fields'):  # StructType
-                        nested_fields = [nf.name for nf in field.dataType.fields]
-                        print(f"DEBUG: Nested fields in '{field.name}': {nested_fields}")
                         found_nested = any(nested_f.name.lower() == nested_field for nested_f in field.dataType.fields)
                         if found_nested:
-                            print("DEBUG: Found nested field match!")
                             return True
-                    else:
-                        print(f"DEBUG: Field '{field.name}' is not a struct type")
                     break
         
-        print(f"DEBUG: No match found for '{column_name}' in table '{db_name}.{table_name}'")
         return False
     except Exception as e:
-        print(f"DEBUG: Table/Column check failed: {e}")
         logger.exception(f"Table/Column check failed: {e}")
         raise
 
@@ -95,31 +82,18 @@ def validate_incremental_timestamp_field(spark: SparkSession, db_name: str, fiel
     if not field:
         raise ValueError("Incremental Timestamp Field is missing")
     
-    parts = field.split(".")
-    if len(parts) == 1:
-        # Single field name - check across all tables in the database
-        field_name = parts[0]
-        tables = spark.sql(f"SHOW TABLES IN {db_name}").collect()
-        
-        found = False
-        for table_row in tables:
-            table_name = table_row.tableName
-            if check_table_and_column_exist(spark, db_name, table_name, field_name):
-                found = True
-                break
-        
-        if not found:
-            raise ValueError(f"Incremental Timestamp Field '{field_name}' not found in any table in database '{db_name}'")
-            
-    elif len(parts) >= 2:
-        # Format: table.column or table.struct.field (e.g., "mets.event_time")
-        table_name = parts[0]
-        column_name = ".".join(parts[1:])  # Join remaining parts for struct fields
-        
-        if not check_table_and_column_exist(spark, db_name, table_name, column_name):
-            raise ValueError(f"Incremental Timestamp Field not found: {field}")
-    else:
-        raise ValueError(f"Invalid format for Incremental Timestamp Field: {field}")
+    # Always search all tables for the field (whether single or multi-part)
+    tables = spark.sql(f"SHOW TABLES IN {db_name}").collect()
+    
+    found = False
+    for table_row in tables:
+        table_name = table_row.tableName
+        if check_table_and_column_exist(spark, db_name, table_name, field):
+            found = True
+            break
+    
+    if not found:
+        raise ValueError(f"Incremental Timestamp Field not found: {field}")
 
 def get_last_process_map(spark: SparkSession, dataset_id: str, start_process_from_date_str: Optional[str]) -> Optional[Dict[str, datetime]]:
     try:

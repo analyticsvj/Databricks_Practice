@@ -1,0 +1,191 @@
+# Pre-requirement (Not require to install packages)
+!pip install openpyxl==3.0.10
+
+from datetime import datetime
+import os
+import pandas as pd
+import logging
+from openpyxl import load_workbook
+from pyspark.sql import SparkSession, Row
+from pyspark.sql.types import *
+from pyspark.sql.functions import col
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("PETFileLoader")
+
+class PETFileLoader:
+    def __init__(self, spark: SparkSession):
+        self.spark = spark
+
+    @staticmethod
+    def validate_required_sheets(sheetnames: list) -> bool:
+        required_sheets = {"Specification", "Input Fields", "DPS-CDP Params"}
+        missing = required_sheets - set(sheetnames)
+        if missing:
+            raise ValueError(f"Missing required sheets: {missing}")
+        return True
+
+    @staticmethod
+    def validate_specification_format(spec_sheet) -> dict:
+        expected_keys = [
+            "Source Tenant", "Dataset Name", "Data Sharing Agreement (DSA)", "Purpose",
+            "Privacy Domain - Encryption Key", "Destination Tenant", "ExternalID",
+            "Allow Missing Table", "Priority", "Policy"
+        ]
+        spec_rows = list(spec_sheet.iter_rows(min_row=1, max_row=10, max_col=2, values_only=True))
+        if len(spec_rows) < 10:
+            raise ValueError(f"Specification sheet must contain 10 rows, found {len(spec_rows)}.")
+        output = {}
+        for i, expected_key in enumerate(expected_keys):
+            actual_key, actual_value = spec_rows[i]
+            if actual_key != expected_key:
+                raise ValueError(f"Row {i+1} mismatch: expected '{expected_key}', found '{actual_key}'")
+            if not actual_value:
+                raise ValueError(f"Missing value for '{expected_key}' at row {i+1}")
+            output[actual_key] = str(actual_value).strip()
+        return output
+
+    def download_to_tmp(self, source_path: str) -> str:
+        filename = os.path.basename(source_path)
+        dbfs_path = f"dbfs:/tmp/{filename}"
+        logger.info(f"Copying {source_path} → {dbfs_path}")
+        dbutils.fs.cp(source_path, dbfs_path, recurse=False)
+        return f"/dbfs/tmp/{filename}"
+
+    def check_database_exists(self, db_name: str) -> bool:
+        return db_name.lower() in [row.databaseName.lower() for row in self.spark.sql("SHOW DATABASES").collect()]
+
+    def check_table_and_column_exist(self, db_name: str, table_name: str, column_name: str) -> bool:
+        try:
+            if not self.spark.sql(f"SHOW TABLES IN {db_name}").filter(col("tableName") == table_name).count():
+                return False
+            return column_name in [f.name for f in self.spark.table(f"{db_name}.{table_name}").schema.fields]
+        except Exception as e:
+            logger.error(f"Table/Column check failed: {e}")
+            raise
+
+    def get_last_process_map(self, dataset_id: str, start_process_from_date_str: str) -> dict:
+        try:
+            df_existing = self.spark.sql(
+                f"SELECT last_process_datetime FROM pet.ctrl_dataset_config_vj WHERE dataset_id = '{dataset_id}'"
+            )
+            if df_existing.count() > 0:
+                current_map = df_existing.collect()[0]["last_process_datetime"]
+                if current_map and ("initialise" in current_map or dataset_id.lower() in current_map):
+                    return current_map  # Preserve existing map if already set
+
+            if not start_process_from_date_str:
+                return None
+
+            try:
+                start_process_from_date = datetime.strptime(start_process_from_date_str, "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                start_process_from_date = datetime.strptime(start_process_from_date_str, "%Y-%m-%d")
+
+            return {"initialise": start_process_from_date}
+        except Exception as e:
+            logger.error(f"Error checking last_process_datetime: {e}")
+            raise
+
+    def LoadConfigurationsForDataset(self, dataset_id: str, source_file_path: str, overwrite: bool = False) -> dict:
+        results = {
+            "dataset_id": dataset_id,
+            "status": "FAILED",
+            "errors": [],
+            "config_written": False,
+            "input_fields_written": False
+        }
+        try:
+            local_path = self.download_to_tmp(source_file_path)
+            wb = load_workbook(local_path, data_only=True)
+            self.validate_required_sheets(wb.sheetnames)
+            spec_data = self.validate_specification_format(wb["Specification"])
+
+            if spec_data.get("ExternalID", "").upper() != dataset_id.upper():
+                raise ValueError("Dataset ID mismatch between param and file")
+
+            param_data = {k.strip(): str(v).strip() if v is not None else None
+                          for k, v in wb["DPS-CDP Params"].iter_rows(min_row=2, max_row=20, max_col=2, values_only=True) if k}
+
+            if param_data.get("Is Enabled", "TRUE").strip().upper() == "FALSE":
+                raise Exception(f"Dataset {dataset_id} is disabled (Is Enabled = FALSE). Skipping load.")
+
+            db_name = param_data.get("Database Name")
+            if not db_name:
+                raise ValueError("Database Name missing")
+
+            if not self.check_database_exists(db_name):
+                raise ValueError(f"Database '{db_name}' not found")
+
+            input_fields_df = pd.read_excel(local_path, sheet_name="Input Fields", engine="openpyxl")
+            input_fields_df = input_fields_df.iloc[:, :2].dropna(how="all")
+            input_fields_df.columns = [col.strip() for col in input_fields_df.columns]
+
+            for _, row in input_fields_df.iterrows():
+                table = str(row["Table Name"]).strip()
+                column = str(row["Column Name"]).strip()
+                if not self.check_table_and_column_exist(db_name, table, column):
+                    raise ValueError(f"Table or column not found: {db_name}.{table}.{column}")
+
+            last_process_map = self.get_last_process_map(dataset_id, param_data.get("Start Process From Date"))
+
+            config_row = {
+                "dataset_id": dataset_id,
+                "dataset_name": spec_data.get("Dataset Name"),
+                "source_database_name": db_name,
+                "load_type": param_data.get("Load Type"),
+                "is_enabled": True,
+                "pet_dataset_id": param_data.get("Pet Dataset ID"),
+                "incremental_timestamp_method": param_data.get("Incremental Timestamp Method"),
+                "incremental_timestamp_field": param_data.get("Incremental Timestamp Field"),
+                "incremental_header_to_tables_link_field": param_data.get("Incremental Header To Tables  Link Field"),
+                "schedule": param_data.get("Schedule"),
+                "week_days": param_data.get("Week Days"),
+                "dates_of_month": param_data.get("Dates Of Month"),
+                "dataset_owner": param_data.get("Dataset Owner"),
+                "modified_date": datetime.now(),
+                "dataset_modified_by_user": os.getenv("USER", "system"),
+                "last_run_time": None,
+                "next_run_due_time": None,
+                "last_process_datetime": last_process_map,
+                "comments": param_data.get("Comments")
+            }
+
+            config_schema = StructType([
+                StructField("dataset_id", StringType(), True),
+                StructField("dataset_name", StringType(), True),
+                StructField("source_database_name", StringType(), True),
+                StructField("load_type", StringType(), True),
+                StructField("is_enabled", BooleanType(), True),
+                StructField("pet_dataset_id", StringType(), True),
+                StructField("incremental_timestamp_method", StringType(), True),
+                StructField("incremental_timestamp_field", StringType(), True),
+                StructField("incremental_header_to_tables_link_field", StringType(), True),
+                StructField("schedule", StringType(), True),
+                StructField("week_days", StringType(), True),
+                StructField("dates_of_month", StringType(), True),
+                StructField("dataset_owner", StringType(), True),
+                StructField("modified_date", TimestampType(), True),
+                StructField("dataset_modified_by_user", StringType(), True),
+                StructField("last_run_time", TimestampType(), True),
+                StructField("next_run_due_time", TimestampType(), True),
+                StructField("last_process_datetime", MapType(StringType(), TimestampType()), True),
+                StructField("comments", StringType(), True)
+            ])
+
+            config_df = self.spark.createDataFrame([Row(**config_row)], schema=config_schema)
+            config_df.write.format("delta").mode("overwrite" if overwrite else "append").saveAsTable("pet.ctrl_dataset_config_vj")
+            results["config_written"] = True
+
+            input_fields_df["dataset_id"] = dataset_id
+            input_fields_df.rename(columns={"Table Name": "table_name", "Column Name": "field_name"}, inplace=True)
+            input_fields_sdf = self.spark.createDataFrame(input_fields_df)
+            input_fields_sdf.write.format("delta").mode("overwrite").saveAsTable("pet.ctrl_dataset_input_fields_vj")
+            results["input_fields_written"] = True
+
+            results["status"] = "SUCCESS"
+
+        except Exception as e:
+            logger.error(f"Error during config load: {str(e)}")
+            results["errors"].append(str(e))
+        return results

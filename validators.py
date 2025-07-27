@@ -44,30 +44,47 @@ def check_database_exists(spark: SparkSession, db_name: str) -> bool:
 
 def check_table_and_column_exist(spark: SparkSession, db_name: str, table_name: str, column_name: str) -> bool:
     try:
-        if not spark.sql(f"SHOW TABLES IN {db_name}").filter(col("tableName") == table_name).count():
+        # Check if table exists
+        tables_df = spark.sql(f"SHOW TABLES IN {db_name}")
+        if not tables_df.filter(col("tableName") == table_name).count():
+            logger.info(f"Table '{table_name}' not found in database '{db_name}'")
             return False
         
+        # Get table schema
         df_schema = spark.table(f"{db_name}.{table_name}").schema
+        logger.info(f"Checking for column '{column_name}' in table '{db_name}.{table_name}'")
+        logger.info(f"Available fields: {[f.name for f in df_schema.fields]}")
         
-        # Check for direct column match first
+        # Check for direct column match first (case-insensitive)
         for field in df_schema.fields:
-            if field.name == column_name:
+            if field.name.lower() == column_name.lower():
+                logger.info(f"Found direct match: '{field.name}' matches '{column_name}'")
                 return True
         
         # Check for struct field (e.g., meta.event_time)
         if "." in column_name:
             parts = column_name.split(".", 1)  # Split only on first dot
-            struct_name = parts[0]
-            nested_field = parts[1]
+            struct_name = parts[0].lower()
+            nested_field = parts[1].lower()
+            logger.info(f"Looking for struct field: struct='{struct_name}', nested='{nested_field}'")
             
-            # Find the struct field
+            # Find the struct field (case-insensitive)
             for field in df_schema.fields:
-                if field.name == struct_name:
+                if field.name.lower() == struct_name:
+                    logger.info(f"Found struct field '{field.name}', type: {field.dataType}")
                     # Check if it's a struct type and contains the nested field
                     if hasattr(field.dataType, 'fields'):  # StructType
-                        return any(nested_f.name == nested_field for nested_f in field.dataType.fields)
+                        nested_fields = [nf.name for nf in field.dataType.fields]
+                        logger.info(f"Nested fields in '{field.name}': {nested_fields}")
+                        found_nested = any(nested_f.name.lower() == nested_field for nested_f in field.dataType.fields)
+                        if found_nested:
+                            logger.info(f"Found nested field match!")
+                            return True
+                    else:
+                        logger.info(f"Field '{field.name}' is not a struct type")
                     break
         
+        logger.info(f"No match found for '{column_name}' in table '{db_name}.{table_name}'")
         return False
     except Exception as e:
         logger.exception(f"Table/Column check failed: {e}")

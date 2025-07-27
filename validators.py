@@ -1,0 +1,110 @@
+from typing import List, Dict, Optional
+from datetime import datetime
+import logging
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col
+
+logger = logging.getLogger("PETFileLoader")
+
+# def validate_required_sheets(sheetnames: List[str]) -> bool:
+#     required_sheets = {"Specification", "Input Fields", "DPS-CDP Params"}
+#     missing = required_sheets - set(sheetnames)
+#     if missing:
+#         raise ValueError(f"Missing required sheets: {missing}")
+#     return True
+
+def validate_required_sheets(sheetnames: list) -> bool:
+    required_sheets = {"Specification", "Input Fields", "DPS-CDP Params"}
+    missing = required_sheets - set(sheetnames)
+    if missing:
+        raise ValueError(f"Missing required sheets: {missing}")
+    return True
+
+def validate_specification_format(spec_sheet) -> Dict[str, str]:
+    expected_keys = [
+        "Source Tenant", "Dataset Name", "Data Sharing Agreement (DSA)", "Purpose",
+        "Privacy Domain - Encryption Key", "Destination Tenant", "ExternalID",
+        "Allow Missing Table", "Priority", "Policy"
+    ]
+    spec_rows = list(spec_sheet.iter_rows(min_row=1, max_row=10, max_col=2, values_only=True))
+    if len(spec_rows) < 10:
+        raise ValueError(f"Specification sheet must contain 10 rows, found {len(spec_rows)}.")
+    output = {}
+    for i, expected_key in enumerate(expected_keys):
+        actual_key, actual_value = spec_rows[i]
+        if actual_key != expected_key:
+            raise ValueError(f"Row {i+1} mismatch: expected '{expected_key}', found '{actual_key}'")
+        if not actual_value:
+            raise ValueError(f"Missing value for '{expected_key}' at row {i+1}")
+        output[actual_key] = str(actual_value).strip()
+    return output
+
+def check_database_exists(spark: SparkSession, db_name: str) -> bool:
+    return db_name.lower() in [row.databaseName.lower() for row in spark.sql("SHOW DATABASES").collect()]
+
+def check_table_and_column_exist(spark: SparkSession, db_name: str, table_name: str, column_name: str) -> bool:
+    try:
+        if not spark.sql(f"SHOW TABLES IN {db_name}").filter(col("tableName") == table_name).count():
+            return False
+        df_schema = spark.table(f"{db_name}.{table_name}").schema
+        return any(
+            f.name == column_name or
+            ("." in column_name and column_name.startswith(f.name + "."))
+            for f in df_schema.fields
+        )
+    except Exception as e:
+        logger.exception(f"Table/Column check failed: {e}")
+        raise
+
+def validate_incremental_timestamp_field(spark: SparkSession, db_name: str, field: Optional[str]) -> None:
+    if not field:
+        raise ValueError("Incremental Timestamp Field is missing")
+    
+    parts = field.split(".")
+    if len(parts) == 1:
+        # Single field name - check across all tables in the database
+        field_name = parts[0]
+        tables = spark.sql(f"SHOW TABLES IN {db_name}").collect()
+        
+        found = False
+        for table_row in tables:
+            table_name = table_row.tableName
+            if check_table_and_column_exist(spark, db_name, table_name, field_name):
+                found = True
+                break
+        
+        if not found:
+            raise ValueError(f"Incremental Timestamp Field '{field_name}' not found in any table in database '{db_name}'")
+            
+    elif len(parts) >= 2:
+        # Format: table.column or table.struct.field (e.g., "mets.event_time")
+        table_name = parts[0]
+        column_name = ".".join(parts[1:])  # Join remaining parts for struct fields
+        
+        if not check_table_and_column_exist(spark, db_name, table_name, column_name):
+            raise ValueError(f"Incremental Timestamp Field not found: {field}")
+    else:
+        raise ValueError(f"Invalid format for Incremental Timestamp Field: {field}")
+
+def get_last_process_map(spark: SparkSession, dataset_id: str, start_process_from_date_str: Optional[str]) -> Optional[Dict[str, datetime]]:
+    try:
+        df_existing = spark.sql(
+            f"SELECT last_process_datetime FROM pet.ctrl_dataset_config_vj WHERE dataset_id = '{dataset_id}'"
+        )
+        if df_existing.count() > 0:
+            current_map = df_existing.collect()[0]["last_process_datetime"]
+            if current_map and ("initialise" in current_map or dataset_id.lower() in current_map):
+                return current_map
+
+        if not start_process_from_date_str:
+            return None
+
+        try:
+            start_process_from_date = datetime.strptime(start_process_from_date_str, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            start_process_from_date = datetime.strptime(start_process_from_date_str, "%Y-%m-%d")
+
+        return {"initialise": start_process_from_date}
+    except Exception as e:
+        logger.exception(f"Error checking last_process_datetime: {e}")
+        raise

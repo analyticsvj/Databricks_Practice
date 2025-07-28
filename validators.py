@@ -206,11 +206,12 @@ def validate_database_name(spark: SparkSession, param_data: dict) -> str:
 
 def validate_input_fields(spark: SparkSession, input_fields_df, db_name: str) -> None:
     """Validate that all input fields exist in the database tables."""
-    # Clean up the dataframe
-    input_fields_df = input_fields_df.iloc[:, :2].dropna(how="all")
-    input_fields_df.columns = [col.strip() for col in input_fields_df.columns]
+    # Clean up the dataframe - use a copy to avoid modifying the original
+    df_copy = input_fields_df.copy()
+    df_copy = df_copy.iloc[:, :2].dropna(how="all")
+    df_copy.columns = [col.strip() for col in df_copy.columns]
     
-    for _, row in input_fields_df.iterrows():
+    for _, row in df_copy.iterrows():
         table = str(row["Table Name"]).strip()
         column = str(row["Column Name"]).strip()
         if not check_table_and_column_exist(spark, db_name, table, column):

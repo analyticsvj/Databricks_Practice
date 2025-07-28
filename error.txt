@@ -1,0 +1,163 @@
+INFO:PETFileLoader:Copying s3://nhsd-dspp-core-devlopment-pet/DIDS_Dataset_Spec_VJ.xlsx → dbfs:/tmp/DIDS_Dataset_Spec_VJ.xlsx
+INFO:py4j.clientserver:Received command c on object id p0
+INFO:py4j.clientserver:Received command c on object id p0
+INFO:py4j.clientserver:Received command c on object id p0
+INFO:py4j.clientserver:Received command c on object id p0
+INFO:py4j.clientserver:Received command c on object id p0
+INFO:py4j.clientserver:Received command c on object id p0
+INFO:py4j.clientserver:Received command c on object id p0
+INFO:PETFileLoader:Configuration data written successfully.
+INFO:py4j.clientserver:Received command c on object id p0
+ERROR:PETFileLoader:Failed to write to pet.ctrl_dataset_input_fields_vj: [_LEGACY_ERROR_TEMP_DELTA_0007] A schema mismatch detected when writing to the Delta table (Table ID: 8f4ddc40-67be-4f34-8966-d68e165021eb).
+To enable schema migration using DataFrameWriter or DataStreamWriter, please set:
+'.option("mergeSchema", "true")'.
+For other operations, set the session configuration
+spark.databricks.delta.schema.autoMerge.enabled to "true". See the documentation
+specific to the operation for details.
+
+Table schema:
+root
+-- field_id: long (nullable = true)
+-- dataset_id: string (nullable = false)
+-- table_name: string (nullable = false)
+-- field_name: string (nullable = false)
+-- comments: string (nullable = true)
+
+
+Data schema:
+root
+-- table_name: string (nullable = true)
+-- field_name: string (nullable = true)
+-- Data Type: double (nullable = true)
+-- Date Formats: double (nullable = true)
+-- dataset_id: string (nullable = true)
+
+         
+To overwrite your schema or change partitioning, please set:
+'.option("overwriteSchema", "true")'.
+
+Note that the schema can't be overwritten when using
+'replaceWhere'.
+         
+Traceback (most recent call last):
+  File "/root/.ipykernel/2099/command-5133261703852414-342224144", line 72, in write_input_fields
+    spark_df.write.format("delta").mode("overwrite").saveAsTable("pet.ctrl_dataset_input_fields_vj")
+  File "/databricks/spark/python/pyspark/instrumentation_utils.py", line 47, in wrapper
+    res = func(*args, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/databricks/spark/python/pyspark/sql/readwriter.py", line 1868, in saveAsTable
+    self._jwrite.saveAsTable(name)
+  File "/databricks/spark/python/lib/py4j-0.10.9.9-src.zip/py4j/java_gateway.py", line 1362, in __call__
+    return_value = get_return_value(
+                   ^^^^^^^^^^^^^^^^^
+  File "/databricks/spark/python/pyspark/errors/exceptions/captured.py", line 310, in deco
+    raise converted from None
+pyspark.errors.exceptions.captured.AnalysisException: [_LEGACY_ERROR_TEMP_DELTA_0007] A schema mismatch detected when writing to the Delta table (Table ID: 8f4ddc40-67be-4f34-8966-d68e165021eb).
+To enable schema migration using DataFrameWriter or DataStreamWriter, please set:
+'.option("mergeSchema", "true")'.
+For other operations, set the session configuration
+spark.databricks.delta.schema.autoMerge.enabled to "true". See the documentation
+specific to the operation for details.
+
+Table schema:
+root
+-- field_id: long (nullable = true)
+-- dataset_id: string (nullable = false)
+-- table_name: string (nullable = false)
+-- field_name: string (nullable = false)
+-- comments: string (nullable = true)
+
+
+Data schema:
+root
+-- table_name: string (nullable = true)
+-- field_name: string (nullable = true)
+-- Data Type: double (nullable = true)
+-- Date Formats: double (nullable = true)
+-- dataset_id: string (nullable = true)
+
+         
+To overwrite your schema or change partitioning, please set:
+'.option("overwriteSchema", "true")'.
+
+Note that the schema can't be overwritten when using
+'replaceWhere'.
+         
+ERROR:PETFileLoader:Error during config load: [_LEGACY_ERROR_TEMP_DELTA_0007] A schema mismatch detected when writing to the Delta table (Table ID: 8f4ddc40-67be-4f34-8966-d68e165021eb).
+To enable schema migration using DataFrameWriter or DataStreamWriter, please set:
+'.option("mergeSchema", "true")'.
+For other operations, set the session configuration
+spark.databricks.delta.schema.autoMerge.enabled to "true". See the documentation
+specific to the operation for details.
+
+Table schema:
+root
+-- field_id: long (nullable = true)
+-- dataset_id: string (nullable = false)
+-- table_name: string (nullable = false)
+-- field_name: string (nullable = false)
+-- comments: string (nullable = true)
+
+
+Data schema:
+root
+-- table_name: string (nullable = true)
+-- field_name: string (nullable = true)
+-- Data Type: double (nullable = true)
+-- Date Formats: double (nullable = true)
+-- dataset_id: string (nullable = true)
+
+         
+To overwrite your schema or change partitioning, please set:
+'.option("overwriteSchema", "true")'.
+
+Note that the schema can't be overwritten when using
+'replaceWhere'.
+         
+Traceback (most recent call last):
+  File "/root/.ipykernel/2099/command-5133261703852415-1935903001", line 83, in LoadConfigurationsForDataset
+    input_fields_written = write_input_fields(self.spark, input_fields_df, dataset_id)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.ipykernel/2099/command-5133261703852414-342224144", line 72, in write_input_fields
+    spark_df.write.format("delta").mode("overwrite").saveAsTable("pet.ctrl_dataset_input_fields_vj")
+  File "/databricks/spark/python/pyspark/instrumentation_utils.py", line 47, in wrapper
+    res = func(*args, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/databricks/spark/python/pyspark/sql/readwriter.py", line 1868, in saveAsTable
+    self._jwrite.saveAsTable(name)
+  File "/databricks/spark/python/lib/py4j-0.10.9.9-src.zip/py4j/java_gateway.py", line 1362, in __call__
+    return_value = get_return_value(
+                   ^^^^^^^^^^^^^^^^^
+  File "/databricks/spark/python/pyspark/errors/exceptions/captured.py", line 310, in deco
+    raise converted from None
+pyspark.errors.exceptions.captured.AnalysisException: [_LEGACY_ERROR_TEMP_DELTA_0007] A schema mismatch detected when writing to the Delta table (Table ID: 8f4ddc40-67be-4f34-8966-d68e165021eb).
+To enable schema migration using DataFrameWriter or DataStreamWriter, please set:
+'.option("mergeSchema", "true")'.
+For other operations, set the session configuration
+spark.databricks.delta.schema.autoMerge.enabled to "true". See the documentation
+specific to the operation for details.
+
+Table schema:
+root
+-- field_id: long (nullable = true)
+-- dataset_id: string (nullable = false)
+-- table_name: string (nullable = false)
+-- field_name: string (nullable = false)
+-- comments: string (nullable = true)
+
+
+Data schema:
+root
+-- table_name: string (nullable = true)
+-- field_name: string (nullable = true)
+-- Data Type: double (nullable = true)
+-- Date Formats: double (nullable = true)
+-- dataset_id: string (nullable = true)
+
+         
+To overwrite your schema or change partitioning, please set:
+'.option("overwriteSchema", "true")'.
+
+Note that the schema can't be overwritten when using
+'replaceWhere'.
+         

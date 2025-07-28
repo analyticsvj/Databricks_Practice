@@ -34,71 +34,69 @@ def validate_specification_format(spec_sheet) -> Dict[str, str]:
 
     # Start validate DPS-CDP Params
 
-def validate_dps_cdp_params(self, param_data: dict, db_name: str):
-    load_type = param_data["load_type"].upper()
-    schedule = param_data.get("schedule")
-    week_days = param_data.get("week_days")
-    dates_of_month = param_data.get("dates_of_month")
+def validate_dps_cdp_params(spark: SparkSession, param_data: dict, db_name: str) -> bool:
+    load_type = param_data.get("Load Type", "").upper()
+    schedule = param_data.get("Schedule")
+    week_days = param_data.get("Week Days")
+    dates_of_month = param_data.get("Dates Of Month")
 
     if load_type not in {"INCREMENTAL", "FULL"}:
-        raise ValueError("load_type must be 'INCREMENTAL' or 'FULL'")
+        raise ValueError("Load Type must be 'INCREMENTAL' or 'FULL'")
 
     if load_type == "INCREMENTAL":
-        if not param_data["incremental_timestamp_field"]:
-            raise ValueError("incremental_timestamp_field must not be empty for INCREMENTAL load")
+        if not param_data.get("Incremental Timestamp Field"):
+            raise ValueError("Incremental Timestamp Field must not be empty for INCREMENTAL load")
         if schedule and schedule.upper() == "DAILY":
             if dates_of_month:
-                raise ValueError("dates_of_month must be empty for DAILY schedule")
+                raise ValueError("Dates Of Month must be empty for DAILY schedule")
             if week_days:
-                raise ValueError("week_days must be empty for DAILY schedule")
+                raise ValueError("Week Days must be empty for DAILY schedule")
         elif schedule and schedule.upper() == "WEEKLY":
             if not week_days:
-                raise ValueError("week_days is required for WEEKLY schedule")
+                raise ValueError("Week Days is required for WEEKLY schedule")
             if dates_of_month:
-                raise ValueError("dates_of_month must be empty for WEEKLY schedule")
+                raise ValueError("Dates Of Month must be empty for WEEKLY schedule")
         elif schedule and schedule.upper() == "MONTHLY":
             if week_days:
-                raise ValueError("week_days must be empty for MONTHLY schedule")
+                raise ValueError("Week Days must be empty for MONTHLY schedule")
             if not dates_of_month:
-                raise ValueError("dates_of_month must not be empty for MONTHLY schedule")
+                raise ValueError("Dates Of Month must not be empty for MONTHLY schedule")
     else:
-        if param_data["incremental_timestamp_field"] or param_data.get("incremental_header_to_tables_link_field") or schedule or week_days or dates_of_month:
-            raise ValueError("For FULL load, incremental_timestamp_field, incremental_header_to_tables_link_field, schedule, week_days, and dates_of_month must be empty")
+        if (param_data.get("Incremental Timestamp Field") or 
+            param_data.get("Incremental Header To Tables  Link Field") or 
+            schedule or week_days or dates_of_month):
+            raise ValueError("For FULL load, incremental fields and schedule parameters must be empty")
 
-    if not param_data["pet_dataset_id"]:
-        raise ValueError("pet_dataset_id is required")
+    if not param_data.get("Pet Dataset ID"):
+        raise ValueError("Pet Dataset ID is required")
 
-    method = param_data["incremental_timestamp_method"]
+    method = param_data.get("Incremental Timestamp Method", "")
     if method.upper() not in {"TIMESTAMP_HEADER_TABLE", "TIMESTAMP_DATA_TABLE"}:
-        raise ValueError("incremental_timestamp_method must be 'timestamp_header_table' or 'timestamp_data_table'")
+        raise ValueError("Incremental Timestamp Method must be 'TIMESTAMP_HEADER_TABLE' or 'TIMESTAMP_DATA_TABLE'")
 
-    if method.lower() == "timestamp_header_table":
-        value = param_data.get("incremental_header_to_tables_link_field")
+    if method.upper() == "TIMESTAMP_HEADER_TABLE":
+        value = param_data.get("Incremental Header To Tables  Link Field")
         if not value or "." not in value:
-            raise ValueError("incremental_header_to_tables_link_field must be in '<table>.<field>' format")
+            raise ValueError("Incremental Header To Tables Link Field must be in '<table>.<field>' format")
         table, field = value.split(".", 1)
-        table_exists = self.spark.sql(f"SHOW TABLES IN {db_name}").filter(f"tableName = '{table}'").count() > 0
-        if not table_exists:
-            raise ValueError(f"Table '{table}' not found in database '{db_name}'")
-        schema_fields = [f.name for f in self.spark.table(f"{db_name}.{table}").schema.fields]
-        if field not in schema_fields:
-            raise ValueError(f"Field '{field}' not found in table '{db_name}.{table}'")
+        if not check_table_and_column_exist(spark, db_name, table, field):
+            raise ValueError(f"Table or field not found: {db_name}.{table}.{field}")
 
     if schedule and schedule.capitalize() not in {"Daily", "Weekly", "Monthly"}:
-        raise ValueError("schedule must be one of: Daily, Weekly, Monthly")
+        raise ValueError("Schedule must be one of: Daily, Weekly, Monthly")
 
     if week_days:
         valid_days = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}
         given_days = {day.strip().capitalize() for day in week_days.split(",")}
         invalid = given_days - valid_days
         if invalid:
-            raise ValueError(f"Invalid week_days: {invalid}")
+            raise ValueError(f"Invalid Week Days: {invalid}")
 
     if dates_of_month:
         values = dates_of_month.split(",")
         for val in values:
             if not val.strip().isdigit() or not (1 <= int(val.strip()) <= 28):
-                raise ValueError(f"dates_of_month must be between 1 and 28. Invalid: {val.strip()}")
+                raise ValueError(f"Dates Of Month must be between 1 and 28. Invalid: {val.strip()}")
 
     return True
 # End validate DPS-CDP Params
@@ -186,6 +184,11 @@ def validate_external_id(spec_data: dict, dataset_id: str) -> None:
     """Validate that ExternalID in specification matches the dataset ID."""
     if spec_data.get("ExternalID", "").upper() != dataset_id.upper():
         raise ValueError("Dataset ID mismatch between param and file")
+
+def validate_dataset_name(spec_data: dict, dataset_id: str) -> None:
+    """Validate that Dataset Name in specification matches the dataset ID."""
+    if spec_data.get("Dataset Name", "").upper() != dataset_id.upper():
+        raise ValueError("Dataset Name mismatch between param and file")
 
 def validate_dataset_enabled(param_data: dict, dataset_id: str) -> None:
     """Check if dataset is enabled for processing."""

@@ -42,6 +42,39 @@ def validate_specification_format(spec_sheet) -> Dict[str, str]:
 def check_database_exists(spark: SparkSession, db_name: str) -> bool:
     return db_name.lower() in [row.databaseName.lower() for row in spark.sql("SHOW DATABASES").collect()]
 
+
+def validate_external_id(spec_data: dict, dataset_id: str) -> None:
+    """Validate that ExternalID in specification matches the dataset ID."""
+    if spec_data.get("ExternalID", "").upper() != dataset_id.upper():
+        raise ValueError("Dataset ID mismatch between param and file")
+
+def validate_dataset_enabled(param_data: dict, dataset_id: str) -> None:
+    """Check if dataset is enabled for processing."""
+    if param_data.get("Is Enabled", "TRUE").strip().upper() == "FALSE":
+        raise Exception(f"Dataset {dataset_id} is disabled (Is Enabled = FALSE). Skipping load.")
+
+def validate_database_name(spark: SparkSession, param_data: dict) -> str:
+    """Validate database name exists and return it."""
+    db_name = param_data.get("Database Name")
+    if not db_name:
+        raise ValueError("Database Name missing")
+    if not check_database_exists(spark, db_name):
+        raise ValueError(f"Database '{db_name}' not found")
+    return db_name
+
+def validate_input_fields(spark: SparkSession, input_fields_df, db_name: str) -> None:
+    """Validate that all input fields exist in the database tables."""
+    # Clean up the dataframe
+    input_fields_df = input_fields_df.iloc[:, :2].dropna(how="all")
+    input_fields_df.columns = [col.strip() for col in input_fields_df.columns]
+    
+    for _, row in input_fields_df.iterrows():
+        table = str(row["Table Name"]).strip()
+        column = str(row["Column Name"]).strip()
+        if not check_table_and_column_exist(spark, db_name, table, column):
+            raise ValueError(f"Table or column not found: {db_name}.{table}.{column}")
+
+
 def check_table_and_column_exist(spark: SparkSession, db_name: str, table_name: str, column_name: str) -> bool:
     try:
         # Check if table exists

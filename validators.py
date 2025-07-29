@@ -157,14 +157,14 @@ def validate_incremental_timestamp_field(spark: SparkSession, db_name: str, fiel
     if not found:
         raise ValueError(f"Incremental Timestamp Field not found: {field}")
 
-def get_last_process_map(spark: SparkSession, dataset_id: str, start_process_from_date_str: Optional[str]) -> Optional[Dict[str, datetime]]:
+def get_last_process_map(spark: SparkSession, dataset_id: str, start_process_from_date_str: Optional[str], cleaned_input_fields_df) -> Optional[Dict[str, datetime]]:
     try:
         df_existing = spark.sql(
             f"SELECT last_process_datetime FROM pet.ctrl_dataset_config_vj WHERE dataset_id = '{dataset_id}'"
         )
         if df_existing.count() > 0:
             current_map = df_existing.collect()[0]["last_process_datetime"]
-            if current_map and ("initialise" in current_map or dataset_id.lower() in current_map):
+            if current_map:
                 return current_map
 
         if not start_process_from_date_str:
@@ -175,7 +175,13 @@ def get_last_process_map(spark: SparkSession, dataset_id: str, start_process_fro
         except ValueError:
             start_process_from_date = datetime.strptime(start_process_from_date_str, "%Y-%m-%d")
 
-        return {"initialise": start_process_from_date}
+        # If last_process_datetime is null, create a map with all unique table names
+        unique_tables = cleaned_input_fields_df["Table Name"].unique()
+        table_timestamp_map = {}
+        for table in unique_tables:
+            table_timestamp_map[str(table).strip()] = start_process_from_date
+        
+        return table_timestamp_map
     except Exception as e:
         logger.exception(f"Error checking last_process_datetime: {e}")
         raise

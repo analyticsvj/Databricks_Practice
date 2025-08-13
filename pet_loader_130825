@@ -178,58 +178,46 @@ def _quote_path_for_select(path: str) -> str:
     return "`.`".join([p.replace("`", "``") for p in path.split(".") if p])
 
 
-def check_table_and_column_exist(spark: SparkSession, db_name: str, table_name: str, column_path: str) -> bool:
-    """
-    - Confirm table via metastore (no Delta read).
-    - Read schema (touches _delta_log) with actionable error if it fails.
-    - Validate nested path via manual walk; if missed, fall back to Spark analyzer
-      via selectExpr/backtick quoting and col("a.b").
-    """
-    # 1) Metastore presence
-    if not _table_exists(spark, db_name, table_name):
-        return False
 
-    # 2) Schema read
-    full = _qualify(spark, db_name, table_name)
+def check_table_and_column_exist(spark: SparkSession, db_name: str, table_name: str, column_name: str) -> bool:
+    """
+    Check if a table and column exist. Supports nested struct fields with dot notation.
+    Example: check_table_and_column_exist(spark, "DIDS", "dids", "meta.event_received_ts")
+    """
     try:
-        df = spark.table(full)
-        schema = df.schema
-    except Exception as e:
-        location = "<unknown>"
-        try:
-            ddl = spark.sql(f"SHOW CREATE TABLE {full}").collect()[0][0]
-            m = re.search(r"LOCATION '([^']+)'", ddl)
-            if m:
-                location = m.group(1)
-        except Exception:
-            pass
-        raise RuntimeError(
-            f"Unable to read schema for {full}. "
-            f"Check S3 permissions to the table path (and _delta_log). "
-            f"Table location: {location}. Underlying error: {type(e).__name__}: {e}"
-        ) from e
-
-    # 3a) Manual nested walk
-    canon = _canonicalize_path(schema, column_path)
-    if canon:
-        return True
-
-    # 3b) Analyzer fallbacks: provided path and canonicalized (if any)
-    for candidate in [column_path, canon]:
-        if not candidate:
-            continue
-        try:
-            sel = f"`{_quote_path_for_select(candidate)}` AS __chk__"
-            df.selectExpr(sel).limit(0).collect()
-            return True
-        except Exception:
-            try:
-                df.select(col(candidate)).limit(0).collect()
+        # Check if table exists
+        tables_df = spark.sql(f"SHOW TABLES IN {db_name}")
+        if not tables_df.filter(col("tableName") == table_name).count():
+            return False
+        
+        # Get table schema
+        df_schema = spark.table(f"{db_name}.{table_name}").schema
+        
+        # Check for direct column match first (case-insensitive)
+        for field in df_schema.fields:
+            if field.name.lower() == column_name.lower():
                 return True
-            except Exception:
-                pass
-
-    return False
+        
+        # Check for struct field (e.g., meta.event_received_ts)
+        if "." in column_name:
+            parts = column_name.split(".", 1)  # Split only on first dot
+            struct_name = parts[0].lower()
+            nested_field = parts[1].lower()
+            
+            # Find the struct field (case-insensitive)
+            for field in df_schema.fields:
+                if field.name.lower() == struct_name:
+                    # Check if it's a struct type and contains the nested field
+                    if hasattr(field.dataType, 'fields'):  # StructType
+                        found_nested = any(nested_f.name.lower() == nested_field for nested_f in field.dataType.fields)
+                        if found_nested:
+                            return True
+                    break
+        
+        return False
+    except Exception as e:
+        logger.exception(f"Table/Column check failed: {e}")
+        raise
 
 
 # ------------------------------------------------------------------------------

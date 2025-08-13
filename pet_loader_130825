@@ -646,11 +646,13 @@ def validate_and_normalize_incremental_timestamp_field(
         )
 
     matches: List[str] = []
-    path_only = ".".join(parts)
+        path_only = ".".join(parts)
+    scanned_tables = []
     for t in candidate_tables:
         t_clean = str(t).strip()
         if not t_clean:
             continue
+        scanned_tables.append(t_clean)
         try:
             if check_table_and_column_exist(spark, db_name, t_clean, path_only):
                 matches.append(t_clean)
@@ -666,9 +668,8 @@ def validate_and_normalize_incremental_timestamp_field(
             f"Please qualify it as '<table>.{path_only}'."
         )
 
-    scanned = list(candidate_tables)
-    hint = f" Scanned tables: {scanned}" if scanned else ""
-    raise ValueError(f"Not found → {db_name}.{path_only}.{hint}")
+    hint = f" Scanned tables: {scanned_tables}" if scanned_tables else ""
+    raise ValueError(f"Not found → {db_name}.{path_only}{hint}")
 
 
 # ------------------------------------------------------------------------------

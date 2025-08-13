@@ -1,3 +1,4 @@
+# Databricks notebook source
 from __future__ import annotations
 
 import io
@@ -79,6 +80,8 @@ def open_excel(blob: bytes) -> pd.ExcelFile:
     bio = io.BytesIO(blob)
     return pd.ExcelFile(bio, engine="openpyxl")
 
+
+# COMMAND ----------
 
 # ------------------------------------------------------------------------------
 # Metastore / table / column helpers
@@ -698,3 +701,150 @@ def validate_and_normalize_incremental_timestamp_field(
     
     # Return in table.field format
     return f"{found_table}.{fs}"
+
+# COMMAND ----------
+
+# ------------------------------------------------------------------------------
+# Loader class
+# ------------------------------------------------------------------------------
+class PETFileLoader:
+    def __init__(self, spark: SparkSession):
+        self.spark = spark
+
+    def LoadConfigurationsForDataset(
+        self,
+        dataset_id: str,
+        source_file_path: str,
+        stage: str,
+        overwrite: bool = False,
+    ) -> dict:
+        results = {
+            "dataset_id": dataset_id,
+            "status": "FAILED",
+            "errors": [],
+            "config_written": False,
+            "input_fields_written": False,
+        }
+
+        try:
+            # 1) File sanity
+            validate_file_format(source_file_path)
+
+            # 2) Fetch into memory
+            blob = fetch_xlsx_bytes(source_file_path)
+            xls = open_excel(blob)
+
+            # 3) Required sheets
+            validate_required_sheets(xls.sheet_names)
+
+            # 4) Spec (placeholder)
+            spec_data = {"Dataset Name": dataset_id}
+
+            # 5) DPS-CDP Params -> dict
+            param_data: Dict[str, Optional[str]] = {}
+            param_df = pd.read_excel(
+                xls, sheet_name="DPS-CDP Params", dtype=str, keep_default_na=False, engine="openpyxl"
+            )
+            for k, v in zip(param_df.iloc[:, 0], param_df.iloc[:, 1]):
+                if k is None:
+                    continue
+                key = str(k).strip()
+                if not key:
+                    continue
+                val = None if v is None else str(v).strip()
+                if val == "":
+                    val = None
+                param_data[key] = val
+
+            # 6) Enabled?
+            validate_dataset_enabled(param_data, dataset_id)
+
+            # 7) Database name
+            db_name = validate_database_name(self.spark, param_data)
+
+            # 8) DPS-CDP params (stage + method checks)
+            validate_dps_cdp_params(self.spark, param_data, db_name, stage)
+
+            # 9) Input Schema (raw) for candidate tables
+            raw_input_df = pd.read_excel(
+                xls, sheet_name="Input Schema", dtype=str, keep_default_na=False, engine="openpyxl"
+            )
+            if "Table Name" in raw_input_df.columns:
+                candidate_tables = (
+                    raw_input_df["Table Name"]
+                    .dropna().astype(str).str.strip()
+                    .replace("", pd.NA).dropna().unique().tolist()
+                )
+            else:
+                candidate_tables = (
+                    raw_input_df.iloc[:, 1]
+                    .dropna().astype(str).str.strip()
+                    .replace("", pd.NA).dropna().unique().tolist()
+                )
+
+            # 10) Normalize/validate Incremental Timestamp Field
+            normalized_ts = validate_and_normalize_incremental_timestamp_field(
+                self.spark, db_name, param_data.get("Incremental Timestamp Field"), candidate_tables=candidate_tables
+            )
+            param_data["Incremental Timestamp Field"] = normalized_ts
+
+            # 11) Validate Input Schema fully
+            cleaned_input_fields_df = validate_input_fields(self.spark, raw_input_df, db_name)
+
+            # 12) last_process_map
+            last_process_map = get_last_process_map(
+                self.spark, dataset_id, param_data.get("Start Process From Date"), cleaned_input_fields_df
+            )
+
+            # 13) Write config
+            config_written = write_config(
+                self.spark, dataset_id, spec_data, param_data, db_name, last_process_map, overwrite
+            )
+            results["config_written"] = bool(config_written)
+
+            # 14) Write Input Schema
+            stage_value = param_data.get("Stage") or stage
+            write_input_fields_table(self.spark, cleaned_input_fields_df, dataset_id, stage_value)
+            results["input_fields_written"] = True
+
+            results["status"] = "SUCCESS"
+            return results
+
+        except Exception as e:
+            logger.exception(f"Error during config load: {e}")
+            results["errors"].append(str(e))
+            return results
+
+# ------------------------------------------------------------------------------
+# Databricks widgets entrypoint
+# ------------------------------------------------------------------------------
+if "dbutils" in locals():
+    dbutils.widgets.text("dataset_id", "")
+    dbutils.widgets.text("source_file_path", "")
+    dbutils.widgets.dropdown("stage", "Data-Provisioning", ["Data-Provisioning", "Domain-0-Transformation"])
+    dbutils.widgets.dropdown("overwrite", "False", ["True", "False"])
+
+    spark = SparkSession.builder.getOrCreate()
+    dataset_id = dbutils.widgets.get("dataset_id")
+    source_file_path = dbutils.widgets.get("source_file_path")
+    stage = dbutils.widgets.get("stage")
+    overwrite = dbutils.widgets.get("overwrite") == "True"
+
+    loader = PETFileLoader(spark)
+    result = loader.LoadConfigurationsForDataset(dataset_id, source_file_path, stage, overwrite)
+
+    print(result)
+    dbutils.notebook.exit(result)
+
+# COMMAND ----------
+
+spark = SparkSession.builder.getOrCreate()
+loader = PETFileLoader(spark)
+
+loader.LoadConfigurationsForDataset(
+    dataset_id="DPS_DIDS",
+    source_file_path="s3://nhsd-dspp-core-ref-pet-target/config/DIDS_Dataset_Spec_Pass1.xlsx", 
+  stage="Domain-0-Transformation",
+     # Must be accessible in DBFS
+    overwrite=True
+)

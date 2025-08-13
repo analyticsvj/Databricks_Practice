@@ -189,14 +189,20 @@ def check_table_and_column_exist(spark: SparkSession, db_name: str, table_name: 
     2. Try spark.table().schema (requires Delta log access)
     3. Try SHOW COLUMNS (alternative approach)
     """
+    logger.info(f"Checking table/column: {db_name}.{table_name}.{column_name}")
+    
     try:
         # Check if table exists first
         tables_df = spark.sql(f"SHOW TABLES IN {db_name}")
-        if not tables_df.filter(col("tableName") == table_name).count():
+        table_exists = tables_df.filter(col("tableName") == table_name).count() > 0
+        logger.info(f"Table {db_name}.{table_name} exists: {table_exists}")
+        
+        if not table_exists:
             return False
         
         # Method 1: Try DESCRIBE TABLE (doesn't require Delta log access)
         try:
+            logger.info(f"Attempting DESCRIBE TABLE for {db_name}.{table_name}")
             describe_df = spark.sql(f"DESCRIBE TABLE {db_name}.{table_name}")
             describe_rows = describe_df.collect()
             
@@ -207,16 +213,21 @@ def check_table_and_column_exist(spark: SparkSession, db_name: str, table_name: 
                 if col_name and not col_name.startswith('#'):  # Skip comments
                     available_columns.append(col_name.lower())
             
+            logger.info(f"DESCRIBE TABLE found columns: {available_columns}")
+            
             # Check for direct column match (case-insensitive)
             if column_name.lower() in available_columns:
+                logger.info(f"Found direct column match for {column_name}")
                 return True
             
             # For nested fields, we need more detailed schema info
             # If we have a dot notation, we might need the full schema
             if "." in column_name:
+                logger.info(f"Column {column_name} contains dot notation, need full schema")
                 # This requires falling back to schema reading
                 raise Exception("Need full schema for nested field validation")
                 
+            logger.info(f"Column {column_name} not found in DESCRIBE TABLE output")
             return False
             
         except Exception as describe_error:
@@ -224,11 +235,17 @@ def check_table_and_column_exist(spark: SparkSession, db_name: str, table_name: 
             
             # Method 2: Try getting the schema (may fail with permission issues)
             try:
+                logger.info(f"Attempting schema access for {db_name}.{table_name}")
                 df_schema = spark.table(f"{db_name}.{table_name}").schema
+                
+                # Log schema structure for debugging
+                schema_fields = [f.name for f in df_schema.fields]
+                logger.info(f"Schema fields: {schema_fields}")
                 
                 # Check for direct column match first (case-insensitive)
                 for field in df_schema.fields:
                     if field.name.lower() == column_name.lower():
+                        logger.info(f"Found direct schema match for {column_name}")
                         return True
                 
                 # Check for struct field (e.g., meta.event_received_ts)
@@ -237,16 +254,29 @@ def check_table_and_column_exist(spark: SparkSession, db_name: str, table_name: 
                     struct_name = parts[0].lower()
                     nested_field = parts[1].lower()
                     
+                    logger.info(f"Looking for struct field: {struct_name} containing {nested_field}")
+                    
                     # Find the struct field (case-insensitive)
                     for field in df_schema.fields:
                         if field.name.lower() == struct_name:
+                            logger.info(f"Found struct field {field.name}, checking if it's a StructType")
                             # Check if it's a struct type and contains the nested field
                             if hasattr(field.dataType, 'fields'):  # StructType
+                                nested_fields = [nf.name for nf in field.dataType.fields]
+                                logger.info(f"Struct {field.name} contains fields: {nested_fields}")
                                 found_nested = any(nested_f.name.lower() == nested_field for nested_f in field.dataType.fields)
                                 if found_nested:
+                                    logger.info(f"Found nested field {nested_field} in struct {field.name}")
                                     return True
+                                else:
+                                    logger.info(f"Nested field {nested_field} not found in struct {field.name}")
+                            else:
+                                logger.info(f"Field {field.name} is not a struct type: {type(field.dataType)}")
                             break
+                    else:
+                        logger.info(f"Struct field {struct_name} not found in schema")
                 
+                logger.info(f"Column {column_name} not found in schema")
                 return False
                 
             except Exception as schema_error:
@@ -254,11 +284,15 @@ def check_table_and_column_exist(spark: SparkSession, db_name: str, table_name: 
                 
                 # Method 3: Try SHOW COLUMNS as last resort
                 try:
+                    logger.info(f"Attempting SHOW COLUMNS for {db_name}.{table_name}")
                     columns_df = spark.sql(f"SHOW COLUMNS IN {db_name}.{table_name}")
                     columns = [row['col_name'].lower() for row in columns_df.collect()]
                     
+                    logger.info(f"SHOW COLUMNS found: {columns}")
+                    
                     # For nested fields, this won't work well, but we can try basic matching
                     if column_name.lower() in columns:
+                        logger.info(f"Found column {column_name} in SHOW COLUMNS")
                         return True
                     
                     # For nested fields like "meta.event_received_ts", check if "meta" exists
@@ -270,6 +304,7 @@ def check_table_and_column_exist(spark: SparkSession, db_name: str, table_name: 
                             logger.warning(f"Found struct column '{struct_name}' but cannot verify nested field due to permission issues")
                             return True
                     
+                    logger.info(f"Column {column_name} not found in SHOW COLUMNS")
                     return False
                     
                 except Exception as columns_error:

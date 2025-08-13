@@ -197,13 +197,35 @@ def _quote_path_for_select(path: str) -> str:
 
 def check_table_and_column_exist(spark: SparkSession, db_name: str, table_name: str, column_name: str) -> bool:
     try:
-        # Check if table exists
-        tables_df = spark.sql(f"SHOW TABLES IN {db_name}")
-        if not tables_df.filter(col("tableName") == table_name).count():
-            return False
+        # Check if table exists first
+        try:
+            tables_df = spark.sql(f"SHOW TABLES IN {db_name}")
+            if not tables_df.filter(col("tableName") == table_name).count():
+                logger.warning(f"Table '{table_name}' not found in database '{db_name}'")
+                return False
+        except Exception as e:
+            logger.error(f"Failed to list tables in database '{db_name}': {e}")
+            raise ValueError(f"Cannot access database '{db_name}': {e}")
         
-        # Get table schema
-        df_schema = spark.table(f"{db_name}.{table_name}").schema
+        # Get table schema with better error handling
+        try:
+            full_table_name = f"{db_name}.{table_name}"
+            logger.info(f"Accessing table schema for: {full_table_name}")
+            df_schema = spark.table(full_table_name).schema
+            logger.info(f"Successfully retrieved schema for {full_table_name}")
+        except Exception as e:
+            error_msg = str(e)
+            if "table" in error_msg.lower() and ("not found" in error_msg.lower() or "does not exist" in error_msg.lower()):
+                logger.warning(f"Table '{full_table_name}' does not exist or is not accessible")
+                return False
+            elif "permission" in error_msg.lower() or "access" in error_msg.lower():
+                raise ValueError(f"Permission denied accessing table '{full_table_name}': {e}")
+            elif "o" in error_msg and ".table" in error_msg:
+                # Handle Spark internal errors like "o337.table"
+                raise ValueError(f"Spark internal error accessing table '{full_table_name}'. This may indicate table corruption, permission issues, or Delta table problems: {e}")
+            else:
+                raise ValueError(f"Failed to access table schema for '{full_table_name}': {e}")
+        
         
         # Check for direct column match first (case-insensitive)
         for field in df_schema.fields:

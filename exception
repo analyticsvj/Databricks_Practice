@@ -1,411 +1,230 @@
-ERROR:PETFileLoader:Table/Column check failed: An error occurred while calling o337.table.
-: java.util.concurrent.ExecutionException: org.apache.spark.SparkException: Exception thrown in awaitResult: 
-	at com.google.common.util.concurrent.AbstractFuture$Sync.getValue(AbstractFuture.java:299)
-	at com.google.common.util.concurrent.AbstractFuture$Sync.get(AbstractFuture.java:286)
-	at com.google.common.util.concurrent.AbstractFuture.get(AbstractFuture.java:116)
-	at com.google.common.util.concurrent.Uninterruptibles.getUninterruptibly(Uninterruptibles.java:135)
-	at com.google.common.cache.LocalCache$Segment.getAndRecordStats(LocalCache.java:2344)
-	at com.google.common.cache.LocalCache$Segment.loadSync(LocalCache.java:2316)
-	at com.google.common.cache.LocalCache$Segment.lockedGetOrLoad(LocalCache.java:2278)
-	at com.google.common.cache.LocalCache$Segment.get(LocalCache.java:2193)
-	at com.google.common.cache.LocalCache.get(LocalCache.java:3932)
-	at com.google.common.cache.LocalCache$LocalManualCache.get(LocalCache.java:4721)
-	at com.databricks.sql.transaction.tahoe.DeltaLog$.getDeltaLogFromCache$1(DeltaLog.scala:758)
-	at com.databricks.sql.transaction.tahoe.DeltaLog$.apply(DeltaLog.scala:765)
-	at com.databricks.sql.transaction.tahoe.DeltaLog$.forTable(DeltaLog.scala:633)
-	at com.databricks.sql.transaction.tahoe.catalog.DeltaTableV2.deltaLog$lzycompute(DeltaTableV2.scala:83)
-	at com.databricks.sql.transaction.tahoe.catalog.DeltaTableV2.deltaLog(DeltaTableV2.scala:83)
-	at com.databricks.sql.transaction.tahoe.catalog.DeltaTableV2.$anonfun$snapshot$3(DeltaTableV2.scala:111)
-	at scala.Option.getOrElse(Option.scala:189)
-	at com.databricks.sql.transaction.tahoe.catalog.DeltaTableV2.snapshot$lzycompute(DeltaTableV2.scala:111)
-	at com.databricks.sql.transaction.tahoe.catalog.DeltaTableV2.snapshot(DeltaTableV2.scala:100)
-	at com.databricks.sql.transaction.tahoe.catalog.DeltaTableV2.tableSchema$lzycompute(DeltaTableV2.scala:116)
-	at com.databricks.sql.transaction.tahoe.catalog.DeltaTableV2.tableSchema(DeltaTableV2.scala:114)
-	at com.databricks.sql.transaction.tahoe.catalog.DeltaTableV2.schema(DeltaTableV2.scala:118)
-	at org.apache.spark.sql.execution.datasources.v2.DataSourceV2Relation$.create(DataSourceV2Relation.scala:186)
-	at org.apache.spark.sql.catalyst.analysis.Analyzer$ResolveRelations$.$anonfun$createRelation$2(Analyzer.scala:1605)
-	at scala.Option.map(Option.scala:230)
-	at org.apache.spark.sql.catalyst.analysis.Analyzer$ResolveRelations$.$anonfun$createRelation$1(Analyzer.scala:1564)
-	at com.databricks.spark.util.FrameProfiler$.record(FrameProfiler.scala:80)
-	at org.apache.spark.sql.catalyst.analysis.Analyzer$ResolveRelations$.org$apache$spark$sql$catalyst$analysis$Analyzer$ResolveRelations$$record(Analyzer.scala:1782)
-	at org.apache.spark.sql.catalyst.analysis.Analyzer$ResolveRelations$.org$apache$spark$sql$catalyst$analysis$Analyzer$ResolveRelations$$createRelation(Analyzer.scala:1564)
-	at org.apache.spark.sql.catalyst.analysis.Analyzer$ResolveRelations$$anon$3.$anonfun$submit$6(Analyzer.scala:1731)
-	at org.apache.spark.sql.SparkSession.withActive(SparkSession.scala:979)
-	at org.apache.spark.sql.execution.SQLExecution$.$anonfun$withThreadLocalCaptured$4(SQLExecution.scala:471)
-	at scala.util.DynamicVariable.withValue(DynamicVariable.scala:62)
-	at org.apache.spark.sql.execution.SQLExecution$.$anonfun$withThreadLocalCaptured$3(SQLExecution.scala:471)
-	at scala.util.DynamicVariable.withValue(DynamicVariable.scala:62)
-	at org.apache.spark.sql.execution.SQLExecution$.$anonfun$withThreadLocalCaptured$2(SQLExecution.scala:470)
-	at org.apache.spark.sql.execution.SQLExecution$.withOptimisticTransaction(SQLExecution.scala:488)
-	at org.apache.spark.sql.execution.SQLExecution$.$anonfun$withThreadLocalCaptured$1(SQLExecution.scala:469)
-	at java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1604)
-	at org.apache.spark.util.threads.SparkThreadLocalCapturingRunnable.$anonfun$run$1(SparkThreadLocalForwardingThreadPoolExecutor.scala:104)
-	at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.java:23)
-	at org.apache.spark.util.threads.SparkThreadLocalCapturingHelper.runWithCaptured(SparkThreadLocalForwardingThreadPoolExecutor.scala:68)
-	at org.apache.spark.util.threads.SparkThreadLocalCapturingHelper.runWithCaptured$(SparkThreadLocalForwardingThreadPoolExecutor.scala:54)
-	at org.apache.spark.util.threads.SparkThreadLocalCapturingRunnable.runWithCaptured(SparkThreadLocalForwardingThreadPoolExecutor.scala:101)
-	at org.apache.spark.util.threads.SparkThreadLocalCapturingRunnable.run(SparkThreadLocalForwardingThreadPoolExecutor.scala:104)
-	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149)
-	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
-	at java.lang.Thread.run(Thread.java:750)
-Caused by: org.apache.spark.SparkException: Exception thrown in awaitResult: 
-	at org.apache.spark.util.ThreadUtils$.awaitResult(ThreadUtils.scala:428)
-	at org.apache.spark.util.ThreadUtils$.parallelMap(ThreadUtils.scala:399)
-	at com.databricks.sql.transaction.tahoe.DeltaFileProvider.$anonfun$localDeltaFiles$2(DeltaFileProvider.scala:98)
-	at com.databricks.spark.util.FrameProfiler$.record(FrameProfiler.scala:80)
-	at com.databricks.sql.transaction.tahoe.DeltaFileProvider.$anonfun$localDeltaFiles$1(DeltaFileProvider.scala:86)
-	at scala.Option.map(Option.scala:230)
-	at com.databricks.sql.transaction.tahoe.DeltaFileProvider.localDeltaFiles(DeltaFileProvider.scala:85)
-	at com.databricks.sql.transaction.tahoe.DeltaFileProvider.localDeltaFiles$(DeltaFileProvider.scala:84)
-	at com.databricks.sql.transaction.tahoe.SnapshotEdge.localDeltaFiles$lzycompute(SnapshotEdge.scala:52)
-	at com.databricks.sql.transaction.tahoe.SnapshotEdge.localDeltaFiles(SnapshotEdge.scala:52)
-	at com.databricks.sql.transaction.tahoe.DeltaFileProvider.$anonfun$loadDeltaFiles$1(DeltaFileProvider.scala:136)
-	at com.databricks.spark.util.FrameProfiler$.record(FrameProfiler.scala:80)
-	at com.databricks.sql.transaction.tahoe.DeltaFileProvider.loadDeltaFiles(DeltaFileProvider.scala:134)
-	at com.databricks.sql.transaction.tahoe.DeltaFileProvider.loadDeltaFiles$(DeltaFileProvider.scala:132)
-	at com.databricks.sql.transaction.tahoe.SnapshotEdge.loadDeltaFiles(SnapshotEdge.scala:52)
-	at com.databricks.sql.transaction.tahoe.SnapshotEdge.$anonfun$x$8$2(SnapshotEdge.scala:136)
-	at com.databricks.spark.util.FrameProfiler$.record(FrameProfiler.scala:80)
-	at com.databricks.sql.transaction.tahoe.SnapshotEdge.$anonfun$x$8$1(SnapshotEdge.scala:106)
-	at com.databricks.sql.acl.CheckPermissions$.trusted(CheckPermissions.scala:1585)
-	at com.databricks.sql.transaction.tahoe.SnapshotEdge.x$8$lzycompute(SnapshotEdge.scala:106)
-	at com.databricks.sql.transaction.tahoe.SnapshotEdge.x$8(SnapshotEdge.scala:105)
-	at com.databricks.sql.transaction.tahoe.SnapshotEdge._metadata$lzycompute(SnapshotEdge.scala:105)
-	at com.databricks.sql.transaction.tahoe.SnapshotEdge._metadata(SnapshotEdge.scala:105)
-	at com.databricks.sql.transaction.tahoe.SnapshotEdge.metadata(SnapshotEdge.scala:183)
-	at com.databricks.sql.transaction.tahoe.stats.DataSkippingReaderBase.$init$(DataSkippingReader.scala:196)
-	at com.databricks.sql.transaction.tahoe.Snapshot.<init>(Snapshot.scala:75)
-	at com.databricks.sql.transaction.tahoe.SnapshotEdge.<init>(SnapshotEdge.scala:65)
-	at com.databricks.sql.transaction.tahoe.SnapshotManagementEdge.$anonfun$createSnapshot$2(SnapshotManagementEdge.scala:57)
-	at com.databricks.sql.transaction.tahoe.SnapshotManagement.createSnapshotFromGivenOrEquivalentLogSegment(SnapshotManagement.scala:389)
-	at com.databricks.sql.transaction.tahoe.SnapshotManagement.createSnapshotFromGivenOrEquivalentLogSegment$(SnapshotManagement.scala:377)
-	at com.databricks.sql.transaction.tahoe.DeltaLog.createSnapshotFromGivenOrEquivalentLogSegment(DeltaLog.scala:76)
-	at com.databricks.sql.transaction.tahoe.SnapshotManagementEdge.$anonfun$createSnapshot$1(SnapshotManagementEdge.scala:50)
-	at com.databricks.spark.util.FrameProfiler$.record(FrameProfiler.scala:80)
-	at com.databricks.sql.transaction.tahoe.SnapshotManagementEdge.createSnapshot(SnapshotManagementEdge.scala:48)
-	at com.databricks.sql.transaction.tahoe.SnapshotManagementEdge.createSnapshot$(SnapshotManagementEdge.scala:47)
-	at com.databricks.sql.transaction.tahoe.DeltaLog.createSnapshot(DeltaLog.scala:76)
-	at com.databricks.sql.transaction.tahoe.SnapshotManagement.$anonfun$getSnapshotAtInit$2(SnapshotManagement.scala:253)
-	at scala.Option.map(Option.scala:230)
-	at com.databricks.sql.transaction.tahoe.SnapshotManagement.$anonfun$getSnapshotAtInit$1(SnapshotManagement.scala:249)
-	at com.databricks.spark.util.FrameProfiler$.record(FrameProfiler.scala:80)
-	at com.databricks.sql.transaction.tahoe.metering.DeltaLogging.recordFrameProfile(DeltaLogging.scala:203)
-	at com.databricks.sql.transaction.tahoe.metering.DeltaLogging.recordFrameProfile$(DeltaLogging.scala:201)
-	at com.databricks.sql.transaction.tahoe.DeltaLog.recordFrameProfile(DeltaLog.scala:76)
-	at com.databricks.sql.transaction.tahoe.SnapshotManagement.getSnapshotAtInit(SnapshotManagement.scala:258)
-	at com.databricks.sql.transaction.tahoe.SnapshotManagement.getSnapshotAtInit$(SnapshotManagement.scala:247)
-	at com.databricks.sql.transaction.tahoe.DeltaLog.getSnapshotAtInit(DeltaLog.scala:76)
-	at com.databricks.sql.transaction.tahoe.SnapshotManagement.$init$(SnapshotManagement.scala:54)
-	at com.databricks.sql.transaction.tahoe.DeltaLog.<init>(DeltaLog.scala:81)
-	at com.databricks.sql.transaction.tahoe.DeltaLog$.$anonfun$apply$5(DeltaLog.scala:739)
-	at org.apache.spark.sql.catalyst.plans.logical.AnalysisHelper$.allowInvokingTransformsInAnalyzer(AnalysisHelper.scala:324)
-	at com.databricks.sql.transaction.tahoe.DeltaLog$.$anonfun$apply$4(DeltaLog.scala:739)
-	at com.databricks.sql.transaction.tahoe.metering.DeltaLogging.withOperationTypeTag(DeltaLogging.scala:188)
-	at com.databricks.sql.transaction.tahoe.metering.DeltaLogging.withOperationTypeTag$(DeltaLogging.scala:175)
-	at com.databricks.sql.transaction.tahoe.DeltaLog$.withOperationTypeTag(DeltaLog.scala:582)
-	at com.databricks.sql.transaction.tahoe.metering.DeltaLogging.$anonfun$recordDeltaOperation$6(DeltaLogging.scala:139)
-	at com.databricks.spark.util.FrameProfiler$.record(FrameProfiler.scala:80)
-	at com.databricks.sql.transaction.tahoe.metering.DeltaLogging.recordFrameProfile(DeltaLogging.scala:203)
-	at com.databricks.sql.transaction.tahoe.metering.DeltaLogging.recordFrameProfile$(DeltaLogging.scala:201)
-	at com.databricks.sql.transaction.tahoe.DeltaLog$.recordFrameProfile(DeltaLog.scala:582)
-	at com.databricks.sql.transaction.tahoe.metering.DeltaLogging.$anonfun$recordDeltaOperation$5(DeltaLogging.scala:138)
-	at com.databricks.logging.UsageLogging.$anonfun$recordOperation$1(UsageLogging.scala:330)
-	at com.databricks.logging.UsageLogging.executeThunkAndCaptureResultTags$1(UsageLogging.scala:425)
-	at com.databricks.logging.UsageLogging.$anonfun$recordOperationWithResultTags$4(UsageLogging.scala:445)
-	at com.databricks.logging.Log4jUsageLoggingShim$.$anonfun$withAttributionContext$1(Log4jUsageLoggingShim.scala:33)
-	at scala.util.DynamicVariable.withValue(DynamicVariable.scala:62)
-	at com.databricks.logging.AttributionContext$.withValue(AttributionContext.scala:94)
-	at com.databricks.logging.Log4jUsageLoggingShim$.withAttributionContext(Log4jUsageLoggingShim.scala:31)
-	at com.databricks.logging.UsageLogging.withAttributionContext(UsageLogging.scala:205)
-	at com.databricks.logging.UsageLogging.withAttributionContext$(UsageLogging.scala:204)
-	at com.databricks.spark.util.PublicDBLogging.withAttributionContext(DatabricksSparkUsageLogger.scala:24)
-	at com.databricks.logging.UsageLogging.withAttributionTags(UsageLogging.scala:240)
-	at com.databricks.logging.UsageLogging.withAttributionTags$(UsageLogging.scala:225)
-	at com.databricks.spark.util.PublicDBLogging.withAttributionTags(DatabricksSparkUsageLogger.scala:24)
-	at com.databricks.logging.UsageLogging.recordOperationWithResultTags(UsageLogging.scala:420)
-	at com.databricks.logging.UsageLogging.recordOperationWithResultTags$(UsageLogging.scala:339)
-	at com.databricks.spark.util.PublicDBLogging.recordOperationWithResultTags(DatabricksSparkUsageLogger.scala:24)
-	at com.databricks.logging.UsageLogging.recordOperation(UsageLogging.scala:330)
-	at com.databricks.logging.UsageLogging.recordOperation$(UsageLogging.scala:302)
-	at com.databricks.spark.util.PublicDBLogging.recordOperation(DatabricksSparkUsageLogger.scala:24)
-	at com.databricks.spark.util.PublicDBLogging.recordOperation0(DatabricksSparkUsageLogger.scala:61)
-	at com.databricks.spark.util.DatabricksSparkUsageLogger.recordOperation(DatabricksSparkUsageLogger.scala:143)
-	at com.databricks.spark.util.UsageLogger.recordOperation(UsageLogger.scala:73)
-	at com.databricks.spark.util.UsageLogger.recordOperation$(UsageLogger.scala:60)
-	at com.databricks.spark.util.DatabricksSparkUsageLogger.recordOperation(DatabricksSparkUsageLogger.scala:102)
-	at com.databricks.spark.util.UsageLogging.recordOperation(UsageLogger.scala:431)
-	at com.databricks.spark.util.UsageLogging.recordOperation$(UsageLogger.scala:410)
-	at com.databricks.sql.transaction.tahoe.DeltaLog$.recordOperation(DeltaLog.scala:582)
-	at com.databricks.sql.transaction.tahoe.metering.DeltaLogging.recordDeltaOperation(DeltaLogging.scala:137)
-	at com.databricks.sql.transaction.tahoe.metering.DeltaLogging.recordDeltaOperation$(DeltaLogging.scala:121)
-	at com.databricks.sql.transaction.tahoe.DeltaLog$.recordDeltaOperation(DeltaLog.scala:582)
-	at com.databricks.sql.transaction.tahoe.DeltaLog$.createDeltaLog$1(DeltaLog.scala:738)
-	at com.databricks.sql.transaction.tahoe.DeltaLog$.$anonfun$apply$6(DeltaLog.scala:758)
-	at com.google.common.cache.LocalCache$LocalManualCache$1.load(LocalCache.java:4724)
-	at com.google.common.cache.LocalCache$LoadingValueReference.loadFuture(LocalCache.java:3522)
-	at com.google.common.cache.LocalCache$Segment.loadSync(LocalCache.java:2315)
-	... 42 more
-Caused by: java.nio.file.AccessDeniedException: s3://nhsd-dspp-core-ref-curated/assets/dids/dids/_delta_log/00000000000000000161.json: getFileStatus on s3://nhsd-dspp-core-ref-curated/assets/dids/dids/_delta_log/00000000000000000161.json: com.amazonaws.services.s3.model.AmazonS3Exception: Forbidden; request: HEAD https://nhsd-dspp-core-ref-curated.s3.eu-west-2.amazonaws.com assets/dids/dids/_delta_log/00000000000000000161.json {} Hadoop 3.3.1, aws-sdk-java/1.12.189 Linux/5.15.0-1044-aws OpenJDK_64-Bit_Server_VM/25.462-b08 java/1.8.0_462 scala/2.12.14 vendor/Private_Build cfg/retry-mode/legacy com.amazonaws.services.s3.model.GetObjectMetadataRequest; Request ID: TZFY94HG5VPS7NKP, Extended Request ID: IVsjx/RuQ490Jp+hBRHgoBEOG/Wmh4wqRtnlb6BtRZsjeYKoUOPH3fRsbqtc5A+oC+I0sIdvSDl2RoU7NPGl5w==, Cloud Provider: AWS, Instance ID: i-057990e1d16c3250e (Service: Amazon S3; Status Code: 403; Error Code: 403 Forbidden; Request ID: TZFY94HG5VPS7NKP; S3 Extended Request ID: IVsjx/RuQ490Jp+hBRHgoBEOG/Wmh4wqRtnlb6BtRZsjeYKoUOPH3fRsbqtc5A+oC+I0sIdvSDl2RoU7NPGl5w==; Proxy: null), S3 Extended Request ID: IVsjx/RuQ490Jp+hBRHgoBEOG/Wmh4wqRtnlb6BtRZsjeYKoUOPH3fRsbqtc5A+oC+I0sIdvSDl2RoU7NPGl5w==:403 Forbidden
-	at shaded.databricks.org.apache.hadoop.fs.s3a.S3AUtils.translateException(S3AUtils.java:248)
-	at shaded.databricks.org.apache.hadoop.fs.s3a.S3AUtils.translateException(S3AUtils.java:159)
-	at shaded.databricks.org.apache.hadoop.fs.s3a.S3AFileSystem.s3GetFileStatus(S3AFileSystem.java:3294)
-	at shaded.databricks.org.apache.hadoop.fs.s3a.S3AFileSystem.innerGetFileStatus(S3AFileSystem.java:3264)
-	at shaded.databricks.org.apache.hadoop.fs.s3a.S3AFileSystem.getFileStatus(S3AFileSystem.java:3203)
-	at shaded.databricks.org.apache.hadoop.fs.s3a.S3AFileSystem.open(S3AFileSystem.java:1119)
-	at org.apache.hadoop.fs.FileSystem.open(FileSystem.java:976)
-	at com.databricks.tahoe.store.S3LogStoreBase.readWithRetries(S3LogStore.scala:117)
-	at com.databricks.tahoe.store.S3LogStoreBase.read(S3LogStore.scala:142)
-	at com.databricks.tahoe.store.DelegatingLogStore.$anonfun$read$1(DelegatingLogStore.scala:88)
-	at com.databricks.spark.util.FrameProfiler$.record(FrameProfiler.scala:80)
-	at com.databricks.tahoe.store.DelegatingLogStore.read(DelegatingLogStore.scala:88)
-	at com.databricks.sql.transaction.tahoe.DeltaFileProvider.$anonfun$localDeltaFiles$3(DeltaFileProvider.scala:104)
-	at org.apache.spark.util.ThreadUtils$.$anonfun$parallelMap$2(ThreadUtils.scala:397)
-	at scala.concurrent.Future$.$anonfun$apply$1(Future.scala:659)
-	at scala.util.Success.$anonfun$map$1(Try.scala:255)
-	at scala.util.Success.map(Try.scala:213)
-	at scala.concurrent.Future.$anonfun$map$1(Future.scala:292)
-	at scala.concurrent.impl.Promise.liftedTree1$1(Promise.scala:33)
-	at scala.concurrent.impl.Promise.$anonfun$transform$1(Promise.scala:33)
-	at scala.concurrent.impl.CallbackRunnable.run(Promise.scala:64)
-	... 9 more
-Caused by: com.amazonaws.services.s3.model.AmazonS3Exception: Forbidden; request: HEAD https://nhsd-dspp-core-ref-curated.s3.eu-west-2.amazonaws.com assets/dids/dids/_delta_log/00000000000000000161.json {} Hadoop 3.3.1, aws-sdk-java/1.12.189 Linux/5.15.0-1044-aws OpenJDK_64-Bit_Server_VM/25.462-b08 java/1.8.0_462 scala/2.12.14 vendor/Private_Build cfg/retry-mode/legacy com.amazonaws.services.s3.model.GetObjectMetadataRequest; Request ID: TZFY94HG5VPS7NKP, Extended Request ID: IVsjx/RuQ490Jp+hBRHgoBEOG/Wmh4wqRtnlb6BtRZsjeYKoUOPH3fRsbqtc5A+oC+I0sIdvSDl2RoU7NPGl5w==, Cloud Provider: AWS, Instance ID: i-057990e1d16c3250e (Service: Amazon S3; Status Code: 403; Error Code: 403 Forbidden; Request ID: TZFY94HG5VPS7NKP; S3 Extended Request ID: IVsjx/RuQ490Jp+hBRHgoBEOG/Wmh4wqRtnlb6BtRZsjeYKoUOPH3fRsbqtc5A+oC+I0sIdvSDl2RoU7NPGl5w==; Proxy: null), S3 Extended Request ID: IVsjx/RuQ490Jp+hBRHgoBEOG/Wmh4wqRtnlb6BtRZsjeYKoUOPH3fRsbqtc5A+oC+I0sIdvSDl2RoU7NPGl5w==
-	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.handleErrorResponse(AmazonHttpClient.java:1862)
-	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.handleServiceErrorResponse(AmazonHttpClient.java:1415)
-	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.executeOneRequest(AmazonHttpClient.java:1384)
-	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.executeHelper(AmazonHttpClient.java:1154)
-	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.doExecute(AmazonHttpClient.java:811)
-	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.executeWithTimer(AmazonHttpClient.java:779)
-	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.execute(AmazonHttpClient.java:753)
-	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.access$500(AmazonHttpClient.java:713)
-	at com.amazonaws.http.AmazonHttpClient$RequestExecutionBuilderImpl.execute(AmazonHttpClient.java:695)
-	at com.amazonaws.http.AmazonHttpClient.execute(AmazonHttpClient.java:559)
-	at com.amazonaws.http.AmazonHttpClient.execute(AmazonHttpClient.java:539)
-	at com.amazonaws.services.s3.AmazonS3Client.invoke(AmazonS3Client.java:5453)
-	at com.amazonaws.services.s3.AmazonS3Client.invoke(AmazonS3Client.java:5400)
-	at com.amazonaws.services.s3.AmazonS3Client.getObjectMetadata(AmazonS3Client.java:1372)
-	at shaded.databricks.org.apache.hadoop.fs.s3a.EnforcingDatabricksS3Client.getObjectMetadata(EnforcingDatabricksS3Client.scala:222)
-	at shaded.databricks.org.apache.hadoop.fs.s3a.S3AFileSystem.lambda$getObjectMetadata$4(S3AFileSystem.java:1764)
-	at shaded.databricks.org.apache.hadoop.fs.s3a.Invoker.retryUntranslated(Invoker.java:334)
-	at shaded.databricks.org.apache.hadoop.fs.s3a.Invoker.retryUntranslated(Invoker.java:295)
-	at shaded.databricks.org.apache.hadoop.fs.s3a.S3AFileSystem.getObjectMetadata(S3AFileSystem.java:1761)
-	at shaded.databricks.org.apache.hadoop.fs.s3a.S3AFileSystem.s3GetFileStatus(S3AFileSystem.java:3285)
-	... 27 more
-Traceback (most recent call last):
-  File "<ipython-input-2-bc074b2791a7>", line 179, in check_table_and_column_exist
-    df_schema = spark.table(f"{db_name}.{table_name}").schema
-  File "/databricks/spark/python/pyspark/sql/session.py", line 795, in table
-    return DataFrame(self._jsparkSession.table(tableName), self._wrapped)
-  File "/databricks/spark/python/lib/py4j-0.10.9.1-src.zip/py4j/java_gateway.py", line 1305, in __call__
-    answer, self.gateway_client, self.target_id, self.name)
-  File "/databricks/spark/python/pyspark/sql/utils.py", line 117, in deco
-    return f(*a, **kw)
-  File "/databricks/spark/python/lib/py4j-0.10.9.1-src.zip/py4j/protocol.py", line 328, in get_return_value
-    format(target_id, ".", name), value)
-py4j.protocol.Py4JJavaError: An error occurred while calling o337.table.
-: java.util.concurrent.ExecutionException: org.apache.spark.SparkException: Exception thrown in awaitResult: 
-	at com.google.common.util.concurrent.AbstractFuture$Sync.getValue(AbstractFuture.java:299)
-	at com.google.common.util.concurrent.AbstractFuture$Sync.get(AbstractFuture.java:286)
-	at com.google.common.util.concurrent.AbstractFuture.get(AbstractFuture.java:116)
-	at com.google.common.util.concurrent.Uninterruptibles.getUninterruptibly(Uninterruptibles.java:135)
-	at com.google.common.cache.LocalCache$Segment.getAndRecordStats(LocalCache.java:2344)
-	at com.google.common.cache.LocalCache$Segment.loadSync(LocalCache.java:2316)
-	at com.google.common.cache.LocalCache$Segment.lockedGetOrLoad(LocalCache.java:2278)
-	at com.google.common.cache.LocalCache$Segment.get(LocalCache.java:2193)
-	at com.google.common.cache.LocalCache.get(LocalCache.java:3932)
-	at com.google.common.cache.LocalCache$LocalManualCache.get(LocalCache.java:4721)
-	at com.databricks.sql.transaction.tahoe.DeltaLog$.getDeltaLogFromCache$1(DeltaLog.scala:758)
-	at com.databricks.sql.transaction.tahoe.DeltaLog$.apply(DeltaLog.scala:765)
-	at com.databricks.sql.transaction.tahoe.DeltaLog$.forTable(DeltaLog.scala:633)
-	at com.databricks.sql.transaction.tahoe.catalog.DeltaTableV2.deltaLog$lzycompute(DeltaTableV2.scala:83)
-	at com.databricks.sql.transaction.tahoe.catalog.DeltaTableV2.deltaLog(DeltaTableV2.scala:83)
-	at com.databricks.sql.transaction.tahoe.catalog.DeltaTableV2.$anonfun$snapshot$3(DeltaTableV2.scala:111)
-	at scala.Option.getOrElse(Option.scala:189)
-	at com.databricks.sql.transaction.tahoe.catalog.DeltaTableV2.snapshot$lzycompute(DeltaTableV2.scala:111)
-	at com.databricks.sql.transaction.tahoe.catalog.DeltaTableV2.snapshot(DeltaTableV2.scala:100)
-	at com.databricks.sql.transaction.tahoe.catalog.DeltaTableV2.tableSchema$lzycompute(DeltaTableV2.scala:116)
-	at com.databricks.sql.transaction.tahoe.catalog.DeltaTableV2.tableSchema(DeltaTableV2.scala:114)
-	at com.databricks.sql.transaction.tahoe.catalog.DeltaTableV2.schema(DeltaTableV2.scala:118)
-	at org.apache.spark.sql.execution.datasources.v2.DataSourceV2Relation$.create(DataSourceV2Relation.scala:186)
-	at org.apache.spark.sql.catalyst.analysis.Analyzer$ResolveRelations$.$anonfun$createRelation$2(Analyzer.scala:1605)
-	at scala.Option.map(Option.scala:230)
-	at org.apache.spark.sql.catalyst.analysis.Analyzer$ResolveRelations$.$anonfun$createRelation$1(Analyzer.scala:1564)
-	at com.databricks.spark.util.FrameProfiler$.record(FrameProfiler.scala:80)
-	at org.apache.spark.sql.catalyst.analysis.Analyzer$ResolveRelations$.org$apache$spark$sql$catalyst$analysis$Analyzer$ResolveRelations$$record(Analyzer.scala:1782)
-	at org.apache.spark.sql.catalyst.analysis.Analyzer$ResolveRelations$.org$apache$spark$sql$catalyst$analysis$Analyzer$ResolveRelations$$createRelation(Analyzer.scala:1564)
-	at org.apache.spark.sql.catalyst.analysis.Analyzer$ResolveRelations$$anon$3.$anonfun$submit$6(Analyzer.scala:1731)
-	at org.apache.spark.sql.SparkSession.withActive(SparkSession.scala:979)
-	at org.apache.spark.sql.execution.SQLExecution$.$anonfun$withThreadLocalCaptured$4(SQLExecution.scala:471)
-	at scala.util.DynamicVariable.withValue(DynamicVariable.scala:62)
-	at org.apache.spark.sql.execution.SQLExecution$.$anonfun$withThreadLocalCaptured$3(SQLExecution.scala:471)
-	at scala.util.DynamicVariable.withValue(DynamicVariable.scala:62)
-	at org.apache.spark.sql.execution.SQLExecution$.$anonfun$withThreadLocalCaptured$2(SQLExecution.scala:470)
-	at org.apache.spark.sql.execution.SQLExecution$.withOptimisticTransaction(SQLExecution.scala:488)
-	at org.apache.spark.sql.execution.SQLExecution$.$anonfun$withThreadLocalCaptured$1(SQLExecution.scala:469)
-	at java.util.concurrent.CompletableFuture$AsyncSupply.run(CompletableFuture.java:1604)
-	at org.apache.spark.util.threads.SparkThreadLocalCapturingRunnable.$anonfun$run$1(SparkThreadLocalForwardingThreadPoolExecutor.scala:104)
-	at scala.runtime.java8.JFunction0$mcV$sp.apply(JFunction0$mcV$sp.java:23)
-	at org.apache.spark.util.threads.SparkThreadLocalCapturingHelper.runWithCaptured(SparkThreadLocalForwardingThreadPoolExecutor.scala:68)
-	at org.apache.spark.util.threads.SparkThreadLocalCapturingHelper.runWithCaptured$(SparkThreadLocalForwardingThreadPoolExecutor.scala:54)
-	at org.apache.spark.util.threads.SparkThreadLocalCapturingRunnable.runWithCaptured(SparkThreadLocalForwardingThreadPoolExecutor.scala:101)
-	at org.apache.spark.util.threads.SparkThreadLocalCapturingRunnable.run(SparkThreadLocalForwardingThreadPoolExecutor.scala:104)
-	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149)
-	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
-	at java.lang.Thread.run(Thread.java:750)
-Caused by: org.apache.spark.SparkException: Exception thrown in awaitResult: 
-	at org.apache.spark.util.ThreadUtils$.awaitResult(ThreadUtils.scala:428)
-	at org.apache.spark.util.ThreadUtils$.parallelMap(ThreadUtils.scala:399)
-	at com.databricks.sql.transaction.tahoe.DeltaFileProvider.$anonfun$localDeltaFiles$2(DeltaFileProvider.scala:98)
-	at com.databricks.spark.util.FrameProfiler$.record(FrameProfiler.scala:80)
-	at com.databricks.sql.transaction.tahoe.DeltaFileProvider.$anonfun$localDeltaFiles$1(DeltaFileProvider.scala:86)
-	at scala.Option.map(Option.scala:230)
-	at com.databricks.sql.transaction.tahoe.DeltaFileProvider.localDeltaFiles(DeltaFileProvider.scala:85)
-	at com.databricks.sql.transaction.tahoe.DeltaFileProvider.localDeltaFiles$(DeltaFileProvider.scala:84)
-	at com.databricks.sql.transaction.tahoe.SnapshotEdge.localDeltaFiles$lzycompute(SnapshotEdge.scala:52)
-	at com.databricks.sql.transaction.tahoe.SnapshotEdge.localDeltaFiles(SnapshotEdge.scala:52)
-	at com.databricks.sql.transaction.tahoe.DeltaFileProvider.$anonfun$loadDeltaFiles$1(DeltaFileProvider.scala:136)
-	at com.databricks.spark.util.FrameProfiler$.record(FrameProfiler.scala:80)
-	at com.databricks.sql.transaction.tahoe.DeltaFileProvider.loadDeltaFiles(DeltaFileProvider.scala:134)
-	at com.databricks.sql.transaction.tahoe.DeltaFileProvider.loadDeltaFiles$(DeltaFileProvider.scala:132)
-	at com.databricks.sql.transaction.tahoe.SnapshotEdge.loadDeltaFiles(SnapshotEdge.scala:52)
-	at com.databricks.sql.transaction.tahoe.SnapshotEdge.$anonfun$x$8$2(SnapshotEdge.scala:136)
-	at com.databricks.spark.util.FrameProfiler$.record(FrameProfiler.scala:80)
-	at com.databricks.sql.transaction.tahoe.SnapshotEdge.$anonfun$x$8$1(SnapshotEdge.scala:106)
-	at com.databricks.sql.acl.CheckPermissions$.trusted(CheckPermissions.scala:1585)
-	at com.databricks.sql.transaction.tahoe.SnapshotEdge.x$8$lzycompute(SnapshotEdge.scala:106)
-	at com.databricks.sql.transaction.tahoe.SnapshotEdge.x$8(SnapshotEdge.scala:105)
-	at com.databricks.sql.transaction.tahoe.SnapshotEdge._metadata$lzycompute(SnapshotEdge.scala:105)
-	at com.databricks.sql.transaction.tahoe.SnapshotEdge._metadata(SnapshotEdge.scala:105)
-	at com.databricks.sql.transaction.tahoe.SnapshotEdge.metadata(SnapshotEdge.scala:183)
-	at com.databricks.sql.transaction.tahoe.stats.DataSkippingReaderBase.$init$(DataSkippingReader.scala:196)
-	at com.databricks.sql.transaction.tahoe.Snapshot.<init>(Snapshot.scala:75)
-	at com.databricks.sql.transaction.tahoe.SnapshotEdge.<init>(SnapshotEdge.scala:65)
-	at com.databricks.sql.transaction.tahoe.SnapshotManagementEdge.$anonfun$createSnapshot$2(SnapshotManagementEdge.scala:57)
-	at com.databricks.sql.transaction.tahoe.SnapshotManagement.createSnapshotFromGivenOrEquivalentLogSegment(SnapshotManagement.scala:389)
-	at com.databricks.sql.transaction.tahoe.SnapshotManagement.createSnapshotFromGivenOrEquivalentLogSegment$(SnapshotManagement.scala:377)
-	at com.databricks.sql.transaction.tahoe.DeltaLog.createSnapshotFromGivenOrEquivalentLogSegment(DeltaLog.scala:76)
-	at com.databricks.sql.transaction.tahoe.SnapshotManagementEdge.$anonfun$createSnapshot$1(SnapshotManagementEdge.scala:50)
-	at com.databricks.spark.util.FrameProfiler$.record(FrameProfiler.scala:80)
-	at com.databricks.sql.transaction.tahoe.SnapshotManagementEdge.createSnapshot(SnapshotManagementEdge.scala:48)
-	at com.databricks.sql.transaction.tahoe.SnapshotManagementEdge.createSnapshot$(SnapshotManagementEdge.scala:47)
-	at com.databricks.sql.transaction.tahoe.DeltaLog.createSnapshot(DeltaLog.scala:76)
-	at com.databricks.sql.transaction.tahoe.SnapshotManagement.$anonfun$getSnapshotAtInit$2(SnapshotManagement.scala:253)
-	at scala.Option.map(Option.scala:230)
-	at com.databricks.sql.transaction.tahoe.SnapshotManagement.$anonfun$getSnapshotAtInit$1(SnapshotManagement.scala:249)
-	at com.databricks.spark.util.FrameProfiler$.record(FrameProfiler.scala:80)
-	at com.databricks.sql.transaction.tahoe.metering.DeltaLogging.recordFrameProfile(DeltaLogging.scala:203)
-	at com.databricks.sql.transaction.tahoe.metering.DeltaLogging.recordFrameProfile$(DeltaLogging.scala:201)
-	at com.databricks.sql.transaction.tahoe.DeltaLog.recordFrameProfile(DeltaLog.scala:76)
-	at com.databricks.sql.transaction.tahoe.SnapshotManagement.getSnapshotAtInit(SnapshotManagement.scala:258)
-	at com.databricks.sql.transaction.tahoe.SnapshotManagement.getSnapshotAtInit$(SnapshotManagement.scala:247)
-	at com.databricks.sql.transaction.tahoe.DeltaLog.getSnapshotAtInit(DeltaLog.scala:76)
-	at com.databricks.sql.transaction.tahoe.SnapshotManagement.$init$(SnapshotManagement.scala:54)
-	at com.databricks.sql.transaction.tahoe.DeltaLog.<init>(DeltaLog.scala:81)
-	at com.databricks.sql.transaction.tahoe.DeltaLog$.$anonfun$apply$5(DeltaLog.scala:739)
-	at org.apache.spark.sql.catalyst.plans.logical.AnalysisHelper$.allowInvokingTransformsInAnalyzer(AnalysisHelper.scala:324)
-	at com.databricks.sql.transaction.tahoe.DeltaLog$.$anonfun$apply$4(DeltaLog.scala:739)
-	at com.databricks.sql.transaction.tahoe.metering.DeltaLogging.withOperationTypeTag(DeltaLogging.scala:188)
-	at com.databricks.sql.transaction.tahoe.metering.DeltaLogging.withOperationTypeTag$(DeltaLogging.scala:175)
-	at com.databricks.sql.transaction.tahoe.DeltaLog$.withOperationTypeTag(DeltaLog.scala:582)
-	at com.databricks.sql.transaction.tahoe.metering.DeltaLogging.$anonfun$recordDeltaOperation$6(DeltaLogging.scala:139)
-	at com.databricks.spark.util.FrameProfiler$.record(FrameProfiler.scala:80)
-	at com.databricks.sql.transaction.tahoe.metering.DeltaLogging.recordFrameProfile(DeltaLogging.scala:203)
-	at com.databricks.sql.transaction.tahoe.metering.DeltaLogging.recordFrameProfile$(DeltaLogging.scala:201)
-	at com.databricks.sql.transaction.tahoe.DeltaLog$.recordFrameProfile(DeltaLog.scala:582)
-	at com.databricks.sql.transaction.tahoe.metering.DeltaLogging.$anonfun$recordDeltaOperation$5(DeltaLogging.scala:138)
-	at com.databricks.logging.UsageLogging.$anonfun$recordOperation$1(UsageLogging.scala:330)
-	at com.databricks.logging.UsageLogging.executeThunkAndCaptureResultTags$1(UsageLogging.scala:425)
-	at com.databricks.logging.UsageLogging.$anonfun$recordOperationWithResultTags$4(UsageLogging.scala:445)
-	at com.databricks.logging.Log4jUsageLoggingShim$.$anonfun$withAttributionContext$1(Log4jUsageLoggingShim.scala:33)
-	at scala.util.DynamicVariable.withValue(DynamicVariable.scala:62)
-	at com.databricks.logging.AttributionContext$.withValue(AttributionContext.scala:94)
-	at com.databricks.logging.Log4jUsageLoggingShim$.withAttributionContext(Log4jUsageLoggingShim.scala:31)
-	at com.databricks.logging.UsageLogging.withAttributionContext(UsageLogging.scala:205)
-	at com.databricks.logging.UsageLogging.withAttributionContext$(UsageLogging.scala:204)
-	at com.databricks.spark.util.PublicDBLogging.withAttributionContext(DatabricksSparkUsageLogger.scala:24)
-	at com.databricks.logging.UsageLogging.withAttributionTags(UsageLogging.scala:240)
-	at com.databricks.logging.UsageLogging.withAttributionTags$(UsageLogging.scala:225)
-	at com.databricks.spark.util.PublicDBLogging.withAttributionTags(DatabricksSparkUsageLogger.scala:24)
-	at com.databricks.logging.UsageLogging.recordOperationWithResultTags(UsageLogging.scala:420)
-	at com.databricks.logging.UsageLogging.recordOperationWithResultTags$(UsageLogging.scala:339)
-	at com.databricks.spark.util.PublicDBLogging.recordOperationWithResultTags(DatabricksSparkUsageLogger.scala:24)
-	at com.databricks.logging.UsageLogging.recordOperation(UsageLogging.scala:330)
-	at com.databricks.logging.UsageLogging.recordOperation$(UsageLogging.scala:302)
-	at com.databricks.spark.util.PublicDBLogging.recordOperation(DatabricksSparkUsageLogger.scala:24)
-	at com.databricks.spark.util.PublicDBLogging.recordOperation0(DatabricksSparkUsageLogger.scala:61)
-	at com.databricks.spark.util.DatabricksSparkUsageLogger.recordOperation(DatabricksSparkUsageLogger.scala:143)
-	at com.databricks.spark.util.UsageLogger.recordOperation(UsageLogger.scala:73)
-	at com.databricks.spark.util.UsageLogger.recordOperation$(UsageLogger.scala:60)
-	at com.databricks.spark.util.DatabricksSparkUsageLogger.recordOperation(DatabricksSparkUsageLogger.scala:102)
-	at com.databricks.spark.util.UsageLogging.recordOperation(UsageLogger.scala:431)
-	at com.databricks.spark.util.UsageLogging.recordOperation$(UsageLogger.scala:410)
-	at com.databricks.sql.transaction.tahoe.DeltaLog$.recordOperation(DeltaLog.scala:582)
-	at com.databricks.sql.transaction.tahoe.metering.DeltaLogging.recordDeltaOperation(DeltaLogging.scala:137)
-	at com.databricks.sql.transaction.tahoe.metering.DeltaLogging.recordDeltaOperation$(DeltaLogging.scala:121)
-	at com.databricks.sql.transaction.tahoe.DeltaLog$.recordDeltaOperation(DeltaLog.scala:582)
-	at com.databricks.sql.transaction.tahoe.DeltaLog$.createDeltaLog$1(DeltaLog.scala:738)
-	at com.databricks.sql.transaction.tahoe.DeltaLog$.$anonfun$apply$6(DeltaLog.scala:758)
-	at com.google.common.cache.LocalCache$LocalManualCache$1.load(LocalCache.java:4724)
-	at com.google.common.cache.LocalCache$LoadingValueReference.loadFuture(LocalCache.java:3522)
-	at com.google.common.cache.LocalCache$Segment.loadSync(LocalCache.java:2315)
-	... 42 more
-Caused by: java.nio.file.AccessDeniedException: s3://nhsd-dspp-core-ref-curated/assets/dids/dids/_delta_log/00000000000000000161.json: getFileStatus on s3://nhsd-dspp-core-ref-curated/assets/dids/dids/_delta_log/00000000000000000161.json: com.amazonaws.services.s3.model.AmazonS3Exception: Forbidden; request: HEAD https://nhsd-dspp-core-ref-curated.s3.eu-west-2.amazonaws.com assets/dids/dids/_delta_log/00000000000000000161.json {} Hadoop 3.3.1, aws-sdk-java/1.12.189 Linux/5.15.0-1044-aws OpenJDK_64-Bit_Server_VM/25.462-b08 java/1.8.0_462 scala/2.12.14 vendor/Private_Build cfg/retry-mode/legacy com.amazonaws.services.s3.model.GetObjectMetadataRequest; Request ID: TZFY94HG5VPS7NKP, Extended Request ID: IVsjx/RuQ490Jp+hBRHgoBEOG/Wmh4wqRtnlb6BtRZsjeYKoUOPH3fRsbqtc5A+oC+I0sIdvSDl2RoU7NPGl5w==, Cloud Provider: AWS, Instance ID: i-057990e1d16c3250e (Service: Amazon S3; Status Code: 403; Error Code: 403 Forbidden; Request ID: TZFY94HG5VPS7NKP; S3 Extended Request ID: IVsjx/RuQ490Jp+hBRHgoBEOG/Wmh4wqRtnlb6BtRZsjeYKoUOPH3fRsbqtc5A+oC+I0sIdvSDl2RoU7NPGl5w==; Proxy: null), S3 Extended Request ID: IVsjx/RuQ490Jp+hBRHgoBEOG/Wmh4wqRtnlb6BtRZsjeYKoUOPH3fRsbqtc5A+oC+I0sIdvSDl2RoU7NPGl5w==:403 Forbidden
-	at shaded.databricks.org.apache.hadoop.fs.s3a.S3AUtils.translateException(S3AUtils.java:248)
-	at shaded.databricks.org.apache.hadoop.fs.s3a.S3AUtils.translateException(S3AUtils.java:159)
-	at shaded.databricks.org.apache.hadoop.fs.s3a.S3AFileSystem.s3GetFileStatus(S3AFileSystem.java:3294)
-	at shaded.databricks.org.apache.hadoop.fs.s3a.S3AFileSystem.innerGetFileStatus(S3AFileSystem.java:3264)
-	at shaded.databricks.org.apache.hadoop.fs.s3a.S3AFileSystem.getFileStatus(S3AFileSystem.java:3203)
-	at shaded.databricks.org.apache.hadoop.fs.s3a.S3AFileSystem.open(S3AFileSystem.java:1119)
-	at org.apache.hadoop.fs.FileSystem.open(FileSystem.java:976)
-	at com.databricks.tahoe.store.S3LogStoreBase.readWithRetries(S3LogStore.scala:117)
-	at com.databricks.tahoe.store.S3LogStoreBase.read(S3LogStore.scala:142)
-	at com.databricks.tahoe.store.DelegatingLogStore.$anonfun$read$1(DelegatingLogStore.scala:88)
-	at com.databricks.spark.util.FrameProfiler$.record(FrameProfiler.scala:80)
-	at com.databricks.tahoe.store.DelegatingLogStore.read(DelegatingLogStore.scala:88)
-	at com.databricks.sql.transaction.tahoe.DeltaFileProvider.$anonfun$localDeltaFiles$3(DeltaFileProvider.scala:104)
-	at org.apache.spark.util.ThreadUtils$.$anonfun$parallelMap$2(ThreadUtils.scala:397)
-	at scala.concurrent.Future$.$anonfun$apply$1(Future.scala:659)
-	at scala.util.Success.$anonfun$map$1(Try.scala:255)
-	at scala.util.Success.map(Try.scala:213)
-	at scala.concurrent.Future.$anonfun$map$1(Future.scala:292)
-	at scala.concurrent.impl.Promise.liftedTree1$1(Promise.scala:33)
-	at scala.concurrent.impl.Promise.$anonfun$transform$1(Promise.scala:33)
-	at scala.concurrent.impl.CallbackRunnable.run(Promise.scala:64)
-	... 9 more
-Caused by: com.amazonaws.services.s3.model.AmazonS3Exception: Forbidden; request: HEAD https://nhsd-dspp-core-ref-curated.s3.eu-west-2.amazonaws.com assets/dids/dids/_delta_log/00000000000000000161.json {} Hadoop 3.3.1, aws-sdk-java/1.12.189 Linux/5.15.0-1044-aws OpenJDK_64-Bit_Server_VM/25.462-b08 java/1.8.0_462 scala/2.12.14 vendor/Private_Build cfg/retry-mode/legacy com.amazonaws.services.s3.model.GetObjectMetadataRequest; Request ID: TZFY94HG5VPS7NKP, Extended Request ID: IVsjx/RuQ490Jp+hBRHgoBEOG/Wmh4wqRtnlb6BtRZsjeYKoUOPH3fRsbqtc5A+oC+I0sIdvSDl2RoU7NPGl5w==, Cloud Provider: AWS, Instance ID: i-057990e1d16c3250e (Service: Amazon S3; Status Code: 403; Error Code: 403 Forbidden; Request ID: TZFY94HG5VPS7NKP; S3 Extended Request ID: IVsjx/RuQ490Jp+hBRHgoBEOG/Wmh4wqRtnlb6BtRZsjeYKoUOPH3fRsbqtc5A+oC+I0sIdvSDl2RoU7NPGl5w==; Proxy: null), S3 Extended Request ID: IVsjx/RuQ490Jp+hBRHgoBEOG/Wmh4wqRtnlb6BtRZsjeYKoUOPH3fRsbqtc5A+oC+I0sIdvSDl2RoU7NPGl5w==
-	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.handleErrorResponse(AmazonHttpClient.java:1862)
-	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.handleServiceErrorResponse(AmazonHttpClient.java:1415)
-	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.executeOneRequest(AmazonHttpClient.java:1384)
-	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.executeHelper(AmazonHttpClient.java:1154)
-	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.doExecute(AmazonHttpClient.java:811)
-	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.executeWithTimer(AmazonHttpClient.java:779)
-	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.execute(AmazonHttpClient.java:753)
-	at com.amazonaws.http.AmazonHttpClient$RequestExecutor.access$500(AmazonHttpClient.java:713)
-	at com.amazonaws.http.AmazonHttpClient$RequestExecutionBuilderImpl.execute(AmazonHttpClient.java:695)
-	at com.amazonaws.http.AmazonHttpClient.execute(AmazonHttpClient.java:559)
-	at com.amazonaws.http.AmazonHttpClient.execute(AmazonHttpClient.java:539)
-	at com.amazonaws.services.s3.AmazonS3Client.invoke(AmazonS3Client.java:5453)
-	at com.amazonaws.services.s3.AmazonS3Client.invoke(AmazonS3Client.java:5400)
-	at com.amazonaws.services.s3.AmazonS3Client.getObjectMetadata(AmazonS3Client.java:1372)
-	at shaded.databricks.org.apache.hadoop.fs.s3a.EnforcingDatabricksS3Client.getObjectMetadata(EnforcingDatabricksS3Client.scala:222)
-	at shaded.databricks.org.apache.hadoop.fs.s3a.S3AFileSystem.lambda$getObjectMetadata$4(S3AFileSystem.java:1764)
-	at shaded.databricks.org.apache.hadoop.fs.s3a.Invoker.retryUntranslated(Invoker.java:334)
-	at shaded.databricks.org.apache.hadoop.fs.s3a.Invoker.retryUntranslated(Invoker.java:295)
-	at shaded.databricks.org.apache.hadoop.fs.s3a.S3AFileSystem.getObjectMetadata(S3AFileSystem.java:1761)
-	at shaded.databricks.org.apache.hadoop.fs.s3a.S3AFileSystem.s3GetFileStatus(S3AFileSystem.java:3285)
-	... 27 more
-
+INFO:PETFileLoader:PETFileLoader:Fetching bytes from s3://nhsd-dspp-core-ref-pet-target/config/DIDS_Dataset_Spec_Pass1.xlsx
+INFO:PETFileLoader:Schedule validation passed for 'MONTHLY'
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
 ERROR:PETFileLoader:Error during config load: Not found → DIDS.meta.event_received_ts Scanned tables: ['dids']
 Traceback (most recent call last):
-  File "<ipython-input-4-c102448ae3f1>", line 81, in LoadConfigurationsForDataset
+  File "<ipython-input-13-c102448ae3f1>", line 81, in LoadConfigurationsForDataset
     self.spark, db_name, param_data.get("Incremental Timestamp Field"), candidate_tables=candidate_tables
-  File "<ipython-input-2-bc074b2791a7>", line 462, in validate_and_normalize_incremental_timestamp_field
+  File "<ipython-input-11-0a053c0c3b27>", line 462, in validate_and_normalize_incremental_timestamp_field
     raise ValueError(f"Not found → {db_name}.{path_only}{hint}")
 ValueError: Not found → DIDS.meta.event_received_ts Scanned tables: ['dids']
-Out[5]: {'dataset_id': 'DPS_DIDS',
+Out[22]: {'dataset_id': 'DPS_DIDS',
  'status': 'FAILED',
  'errors': ["Not found → DIDS.meta.event_received_ts Scanned tables: ['dids']"],
  'config_written': False,
  'input_fields_written': False}INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
+INFO:py4j.java_gateway:Received command c on object id p0
 INFO:py4j.java_gateway:Received command c on object id p0
 INFO:py4j.java_gateway:Received command c on object id p0
 INFO:py4j.java_gateway:Received command c on object id p0

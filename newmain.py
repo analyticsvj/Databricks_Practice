@@ -204,9 +204,44 @@ def check_table_and_column_exist(spark: SparkSession, db_name: str, table_name: 
         # Check if table exists first
         tables_df = spark.sql(f"SHOW TABLES IN {db_name}")
         if not tables_df.filter(col("tableName") == table_name).count():
+            logger.warning(f"Table {db_name}.{table_name} does not exist")
             return False
         
-        # Try to get the table schema for detailed validation
+        # For normal columns (no dots), try the most reliable methods first
+        if "." not in column_name:
+            # Method 1: Try SHOW COLUMNS (most reliable for normal columns)
+            try:
+                columns_df = spark.sql(f"SHOW COLUMNS IN {db_name}.{table_name}")
+                columns = [row['col_name'].lower() for row in columns_df.collect()]
+                
+                if column_name.lower() in columns:
+                    return True
+                else:
+                    logger.warning(f"Column {column_name} not found in SHOW COLUMNS. Available columns: {columns}")
+                    
+            except Exception as e:
+                logger.warning(f"SHOW COLUMNS failed for {db_name}.{table_name}: {e}")
+            
+            # Method 2: Try DESCRIBE TABLE 
+            try:
+                describe_df = spark.sql(f"DESCRIBE TABLE {db_name}.{table_name}")
+                describe_rows = describe_df.collect()
+                
+                available_columns = []
+                for row in describe_rows:
+                    col_name = row['col_name']
+                    if col_name and not col_name.startswith('#'):
+                        available_columns.append(col_name.lower())
+                
+                if column_name.lower() in available_columns:
+                    return True
+                else:
+                    logger.warning(f"Column {column_name} not found in DESCRIBE TABLE. Available columns: {available_columns}")
+                    
+            except Exception as e:
+                logger.warning(f"DESCRIBE TABLE failed for {db_name}.{table_name}: {e}")
+        
+        # Try to get the table schema for detailed validation (works for both normal and nested)
         try:
             df_schema = spark.table(f"{db_name}.{table_name}").schema
             
@@ -229,50 +264,35 @@ def check_table_and_column_exist(spark: SparkSession, db_name: str, table_name: 
                                 return True
                         break
             
+            # If we get here, column not found - log available columns for debugging
+            available_cols = [f.name for f in df_schema.fields]
+            logger.warning(f"Column {column_name} not found in schema. Available columns: {available_cols}")
             return False
             
-        except Exception:
-            # If schema access fails, try SHOW COLUMNS (safer for permission issues)
-            try:
-                columns_df = spark.sql(f"SHOW COLUMNS IN {db_name}.{table_name}")
-                columns = [row['col_name'].lower() for row in columns_df.collect()]
-                
-                # For normal columns (no dots), direct match
-                if "." not in column_name:
-                    return column_name.lower() in columns
-                
-                # For nested fields, check if the struct exists and assume nested field exists
-                struct_name = column_name.split(".", 1)[0].lower()
-                if struct_name in columns:
-                    return True
-                return False
-                
-            except Exception:
-                # If SHOW COLUMNS fails, try DESCRIBE TABLE as last resort
+        except Exception as e:
+            logger.warning(f"Schema access failed for {db_name}.{table_name}: {e}")
+            
+            # Final fallback for nested fields only
+            if "." in column_name:
                 try:
-                    describe_df = spark.sql(f"DESCRIBE TABLE {db_name}.{table_name}")
-                    describe_rows = describe_df.collect()
+                    columns_df = spark.sql(f"SHOW COLUMNS IN {db_name}.{table_name}")
+                    columns = [row['col_name'].lower() for row in columns_df.collect()]
                     
-                    available_columns = []
-                    for row in describe_rows:
-                        col_name = row['col_name']
-                        if col_name and not col_name.startswith('#'):
-                            available_columns.append(col_name.lower())
-                    
-                    # For normal columns (no dots), direct match
-                    if "." not in column_name:
-                        return column_name.lower() in available_columns
-                    
-                    # For nested fields, if we find the struct, assume the nested field exists
+                    # For nested fields, check if the struct exists and assume nested field exists
                     struct_name = column_name.split(".", 1)[0].lower()
-                    return struct_name in available_columns
+                    if struct_name in columns:
+                        return True
+                    return False
                     
                 except Exception:
-                    # All methods failed, return False
+                    # All methods failed for nested field
                     return False
+            
+            # For normal columns, if all methods failed, return False
+            return False
                 
-    except Exception:
-        # If everything fails, return False instead of raising
+    except Exception as e:
+        logger.error(f"check_table_and_column_exist failed for {db_name}.{table_name}.{column_name}: {e}")
         return False
 
 # ------------------------------------------------------------------------------

@@ -206,35 +206,16 @@ def check_table_and_column_exist(spark: SparkSession, db_name: str, table_name: 
         if not tables_df.filter(col("tableName") == table_name).count():
             return False
         
-        # For nested fields like "meta.event_received_ts", try SHOW COLUMNS first (safer)
-        if "." in column_name:
-            try:
-                # Try SHOW COLUMNS (doesn't require Delta log access)
-                columns_df = spark.sql(f"SHOW COLUMNS IN {db_name}.{table_name}")
-                columns = [row['col_name'].lower() for row in columns_df.collect()]
-                
-                # Check if the struct field exists
-                struct_name = column_name.split(".", 1)[0].lower()
-                if struct_name in columns:
-                    # For now, assume if the struct exists, the nested field exists
-                    # This is a safe assumption to avoid permission issues
-                    return True
-                return False
-                
-            except Exception:
-                # If SHOW COLUMNS fails, try the schema approach
-                pass
-        
         # Try to get the table schema for detailed validation
         try:
             df_schema = spark.table(f"{db_name}.{table_name}").schema
             
-            # Check for direct column match first (case-insensitive)
+            # Check for direct column match first (case-insensitive) - works for normal columns
             for field in df_schema.fields:
                 if field.name.lower() == column_name.lower():
                     return True
             
-            # Check for struct field (e.g., meta.event_received_ts)
+            # Check for struct field (e.g., meta.event_received_ts) - only if column has dots
             if "." in column_name:
                 parts = column_name.split(".", 1)
                 struct_name = parts[0].lower()
@@ -251,36 +232,48 @@ def check_table_and_column_exist(spark: SparkSession, db_name: str, table_name: 
             return False
             
         except Exception:
-            # If schema access fails, try DESCRIBE TABLE
+            # If schema access fails, try SHOW COLUMNS (safer for permission issues)
             try:
-                describe_df = spark.sql(f"DESCRIBE TABLE {db_name}.{table_name}")
-                describe_rows = describe_df.collect()
+                columns_df = spark.sql(f"SHOW COLUMNS IN {db_name}.{table_name}")
+                columns = [row['col_name'].lower() for row in columns_df.collect()]
                 
-                available_columns = []
-                for row in describe_rows:
-                    col_name = row['col_name']
-                    if col_name and not col_name.startswith('#'):
-                        available_columns.append(col_name.lower())
+                # For normal columns (no dots), direct match
+                if "." not in column_name:
+                    return column_name.lower() in columns
                 
-                # For nested fields, if we find the struct, assume the nested field exists
-                if "." in column_name:
-                    struct_name = column_name.split(".", 1)[0].lower()
-                    if struct_name in available_columns:
-                        return True
-                else:
-                    if column_name.lower() in available_columns:
-                        return True
-                
+                # For nested fields, check if the struct exists and assume nested field exists
+                struct_name = column_name.split(".", 1)[0].lower()
+                if struct_name in columns:
+                    return True
                 return False
                 
             except Exception:
-                # All methods failed, return False
-                return False
+                # If SHOW COLUMNS fails, try DESCRIBE TABLE as last resort
+                try:
+                    describe_df = spark.sql(f"DESCRIBE TABLE {db_name}.{table_name}")
+                    describe_rows = describe_df.collect()
+                    
+                    available_columns = []
+                    for row in describe_rows:
+                        col_name = row['col_name']
+                        if col_name and not col_name.startswith('#'):
+                            available_columns.append(col_name.lower())
+                    
+                    # For normal columns (no dots), direct match
+                    if "." not in column_name:
+                        return column_name.lower() in available_columns
+                    
+                    # For nested fields, if we find the struct, assume the nested field exists
+                    struct_name = column_name.split(".", 1)[0].lower()
+                    return struct_name in available_columns
+                    
+                except Exception:
+                    # All methods failed, return False
+                    return False
                 
     except Exception:
         # If everything fails, return False instead of raising
         return False
-
 
 # ------------------------------------------------------------------------------
 # Validators

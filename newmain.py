@@ -196,104 +196,40 @@ def _quote_path_for_select(path: str) -> str:
 
 
 def check_table_and_column_exist(spark: SparkSession, db_name: str, table_name: str, column_name: str) -> bool:
-    """
-    Check if a table and column exist. Supports nested struct fields with dot notation.
-    Example: check_table_and_column_exist(spark, "DIDS", "dids", "meta.event_received_ts")
-    """
     try:
-        # Check if table exists first
+        # Check if table exists
         tables_df = spark.sql(f"SHOW TABLES IN {db_name}")
         if not tables_df.filter(col("tableName") == table_name).count():
-            logger.warning(f"Table {db_name}.{table_name} does not exist")
             return False
         
-        # For normal columns (no dots), try the most reliable methods first
-        if "." not in column_name:
-            # Method 1: Try SHOW COLUMNS (most reliable for normal columns)
-            try:
-                columns_df = spark.sql(f"SHOW COLUMNS IN {db_name}.{table_name}")
-                columns = [row['col_name'].lower() for row in columns_df.collect()]
-                
-                if column_name.lower() in columns:
-                    return True
-                else:
-                    logger.warning(f"Column {column_name} not found in SHOW COLUMNS. Available columns: {columns}")
-                    
-            except Exception as e:
-                logger.warning(f"SHOW COLUMNS failed for {db_name}.{table_name}: {e}")
-            
-            # Method 2: Try DESCRIBE TABLE 
-            try:
-                describe_df = spark.sql(f"DESCRIBE TABLE {db_name}.{table_name}")
-                describe_rows = describe_df.collect()
-                
-                available_columns = []
-                for row in describe_rows:
-                    col_name = row['col_name']
-                    if col_name and not col_name.startswith('#'):
-                        available_columns.append(col_name.lower())
-                
-                if column_name.lower() in available_columns:
-                    return True
-                else:
-                    logger.warning(f"Column {column_name} not found in DESCRIBE TABLE. Available columns: {available_columns}")
-                    
-            except Exception as e:
-                logger.warning(f"DESCRIBE TABLE failed for {db_name}.{table_name}: {e}")
+        # Get table schema
+        df_schema = spark.table(f"{db_name}.{table_name}").schema
         
-        # Try to get the table schema for detailed validation (works for both normal and nested)
-        try:
-            df_schema = spark.table(f"{db_name}.{table_name}").schema
+        # Check for direct column match first (case-insensitive)
+        for field in df_schema.fields:
+            if field.name.lower() == column_name.lower():
+                return True
+        
+        # Check for struct field (e.g., meta.event_time)
+        if "." in column_name:
+            parts = column_name.split(".", 1)  # Split only on first dot
+            struct_name = parts[0].lower()
+            nested_field = parts[1].lower()
             
-            # Check for direct column match first (case-insensitive) - works for normal columns
+            # Find the struct field (case-insensitive)
             for field in df_schema.fields:
-                if field.name.lower() == column_name.lower():
-                    return True
-            
-            # Check for struct field (e.g., meta.event_received_ts) - only if column has dots
-            if "." in column_name:
-                parts = column_name.split(".", 1)
-                struct_name = parts[0].lower()
-                nested_field = parts[1].lower()
-                
-                for field in df_schema.fields:
-                    if field.name.lower() == struct_name:
-                        if hasattr(field.dataType, 'fields'):  # StructType
-                            found_nested = any(nested_f.name.lower() == nested_field for nested_f in field.dataType.fields)
-                            if found_nested:
-                                return True
-                        break
-            
-            # If we get here, column not found - log available columns for debugging
-            available_cols = [f.name for f in df_schema.fields]
-            logger.warning(f"Column {column_name} not found in schema. Available columns: {available_cols}")
-            return False
-            
-        except Exception as e:
-            logger.warning(f"Schema access failed for {db_name}.{table_name}: {e}")
-            
-            # Final fallback for nested fields only
-            if "." in column_name:
-                try:
-                    columns_df = spark.sql(f"SHOW COLUMNS IN {db_name}.{table_name}")
-                    columns = [row['col_name'].lower() for row in columns_df.collect()]
-                    
-                    # For nested fields, check if the struct exists and assume nested field exists
-                    struct_name = column_name.split(".", 1)[0].lower()
-                    if struct_name in columns:
-                        return True
-                    return False
-                    
-                except Exception:
-                    # All methods failed for nested field
-                    return False
-            
-            # For normal columns, if all methods failed, return False
-            return False
-                
-    except Exception as e:
-        logger.error(f"check_table_and_column_exist failed for {db_name}.{table_name}.{column_name}: {e}")
+                if field.name.lower() == struct_name:
+                    # Check if it's a struct type and contains the nested field
+                    if hasattr(field.dataType, 'fields'):  # StructType
+                        found_nested = any(nested_f.name.lower() == nested_field for nested_f in field.dataType.fields)
+                        if found_nested:
+                            return True
+                    break
+        
         return False
+    except Exception as e:
+        logger.exception(f"Table/Column check failed: {e}")
+        raise
 
 # ------------------------------------------------------------------------------
 # Validators
@@ -332,7 +268,8 @@ def validate_schedule_rules(param_data: dict) -> bool:
     return True
 
 
-def validate_dps_cdp_params(spark: SparkSession, param_data: dict, db_name: str, expected_stage: str) -> bool:
+def validate_dps_cdp_params(spark: SparkSession, param_data: dict, db_name: str, expected_stage: str, 
+                          input_schema_tables: Optional[List[Tuple[str, str]]] = None) -> bool:
     load_type = (param_data.get("Load Type") or "").upper()
 
     # Stage validation
@@ -371,11 +308,26 @@ def validate_dps_cdp_params(spark: SparkSession, param_data: dict, db_name: str,
 
     if method == "TIMESTAMP_HEADER_TABLE":
         value = param_data.get("Incremental Header To Tables  Link Field")
-        if not value or "." not in value:
-            raise ValueError("Incremental Header To Tables Link Field must be in '<table>.<field>' format")
-        table, field = value.split(".", 1)
-        if not check_table_and_column_exist(spark, db_name, table, field):
-            raise ValueError(f"Table or field not found: {db_name}.{table}.{field}")
+        if not value:
+            raise ValueError("Incremental Header To Tables Link Field is required for TIMESTAMP_HEADER_TABLE method")
+        
+        field_name = value.strip()
+        
+        # Search for the field in Input Schema tables only
+        found = False
+        found_location = None
+        for schema_db, schema_table in input_schema_tables:
+            if check_table_and_column_exist(spark, schema_db, schema_table, field_name):
+                found = True
+                found_location = f"{schema_db}.{schema_table}"
+                break
+        
+        if not found:
+            available_tables = [f"{db}.{tbl}" for db, tbl in input_schema_tables]
+            raise ValueError(f"TIMESTAMP_HEADER_TABLE field '{field_name}' not found in any Input Schema tables. "
+                           f"Searched tables: {available_tables}")
+        else:
+            logger.info(f"TIMESTAMP_HEADER_TABLE field '{field_name}' found in {found_location}")
 
     return True
 
@@ -463,7 +415,7 @@ def validate_database_name(spark: SparkSession, param_data: dict) -> str:
     return db_name
 
 
-def validate_input_fields(spark: SparkSession, input_fields_df: pd.DataFrame, default_db_name: str) -> pd.DataFrame:
+def validate_input_fields(spark: SparkSession, input_fields_df: pd.DataFrame, default_db_name: str) -> Tuple[pd.DataFrame, List[Tuple[str, str]]]:
     """
     Validates the 'Input Schema' sheet which contains:
       - 'Database Name'
@@ -472,7 +424,9 @@ def validate_input_fields(spark: SparkSession, input_fields_df: pd.DataFrame, de
     For each row:
       * if Database Name is blank, falls back to default_db_name (from DPS-CDP Params)
       * validates database/table/column (supports struct access via dot notation)
-    Returns a cleaned DataFrame with exactly those three columns.
+    Returns:
+      - cleaned DataFrame with exactly those three columns
+      - list of unique (database_name, table_name) tuples for later use
     """
     if input_fields_df is None or input_fields_df.empty:
         raise ValueError("Input Schema sheet is empty.")
@@ -492,6 +446,8 @@ def validate_input_fields(spark: SparkSession, input_fields_df: pd.DataFrame, de
     df["Column Name"] = df["Column Name"].apply(lambda x: str(x).strip() if pd.notnull(x) else "")
 
     cleaned_rows = []
+    unique_db_tables = set()  # Track unique (database, table) combinations
+    
     for idx, row in df.iterrows():
         # Fallback to DPS-CDP 'Database Name' if blank
         db_name = row["Database Name"] or (default_db_name or "")
@@ -513,8 +469,14 @@ def validate_input_fields(spark: SparkSession, input_fields_df: pd.DataFrame, de
             raise ValueError(f"[Input Schema] Row {row_no}: Not found → {db_name}.{table}.{column}")
 
         cleaned_rows.append({"Database Name": db_name, "Table Name": table, "Column Name": column})
+        unique_db_tables.add((db_name, table))  # Store unique database/table combination
 
-    return pd.DataFrame(cleaned_rows, columns=["Database Name", "Table Name", "Column Name"])
+    cleaned_df = pd.DataFrame(cleaned_rows, columns=["Database Name", "Table Name", "Column Name"])
+    unique_db_tables_list = list(unique_db_tables)
+    
+    logger.info(f"Found {len(unique_db_tables_list)} unique database/table combinations: {unique_db_tables_list}")
+    
+    return cleaned_df, unique_db_tables_list
 
 
 # ------------------------------------------------------------------------------
@@ -775,10 +737,9 @@ class PETFileLoader:
             # 7) Database name
             db_name = validate_database_name(self.spark, param_data)
 
-            # 8) DPS-CDP params (stage + method checks)
-            validate_dps_cdp_params(self.spark, param_data, db_name, stage)
+        
 
-            # 9) Input Schema (raw) for candidate tables
+            # 8) Input Schema (raw) for candidate tables
             raw_input_df = pd.read_excel(
                 xls, sheet_name="Input Schema", dtype=str, keep_default_na=False, engine="openpyxl"
             )
@@ -795,14 +756,17 @@ class PETFileLoader:
                     .replace("", pd.NA).dropna().unique().tolist()
                 )
 
-            # 10) Normalize/validate Incremental Timestamp Field
+            # 9) Validate Input Schema fully (per-row DB/table/column) and collect unique DB/table combinations
+            cleaned_input_fields_df, unique_db_tables = validate_input_fields(self.spark, raw_input_df, db_name)
+
+            # 10) DPS-CDP params (stage + load-type/method checks) with optimized table scope
+            validate_dps_cdp_params(self.spark, param_data, db_name, stage, input_schema_tables=unique_db_tables)
+
+            # 11) Normalize/validate Incremental Timestamp Field
             normalized_ts = validate_and_normalize_incremental_timestamp_field(
                 self.spark, db_name, param_data.get("Incremental Timestamp Field"), candidate_tables=candidate_tables
             )
             param_data["Incremental Timestamp Field"] = normalized_ts
-
-            # 11) Validate Input Schema fully
-            cleaned_input_fields_df = validate_input_fields(self.spark, raw_input_df, db_name)
 
             # 12) last_process_map
             last_process_map = get_last_process_map(

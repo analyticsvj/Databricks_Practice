@@ -155,28 +155,34 @@ def write_config(
 
         # 2) map values (all from sheets)
         dataset_name = spec_data.get("Dataset Name") or dataset_id
-        load_type = (_p(param_data, "Load Type") or "").upper()
         is_enabled = _to_bool(_p(param_data, "Is Enabled"))
         pet_dataset_id = _p(param_data, "Pet Dataset ID")
-        method_raw = _p(param_data, "Incremental Timestamp Method") or ""
-        method_norm = method_raw.upper().replace("-", "_")
-
-        # inc_ts_field_raw = _p(param_data, "Incremental Timestamp Field")
-        # # Normalize to leaf only (e.g., meta.event_received_ts -> event_received_ts)
-        # inc_ts_field_norm = validate_and_normalize_incremental_timestamp_field(
-        #     spark, db_name, inc_ts_field_raw
-        # )
-
-        # tolerate both single- and double-space variants
-        header_link = _p(param_data, "Incremental Header To Tables Link Field")
-        if not header_link:
-            header_link = _p(param_data, "Incremental Header To Tables  Link Field")
-
-        schedule = _p(param_data, "Schedule")
-        week_days = _p(param_data, "Week Days")
-        dates_of_month = _p(param_data, "Dates Of Month")
         dataset_owner = _p(param_data, "Dataset Owner")
         comments = _p(param_data, "Comments")
+        
+        # Skip these fields for data provisioning
+        if is_data_provisioning:
+            load_type = None
+            method_norm = None
+            inc_ts_field_raw = None
+            header_link = None
+            schedule = None
+            week_days = None
+            dates_of_month = None
+        else:
+            load_type = (_p(param_data, "Load Type") or "").upper()
+            method_raw = _p(param_data, "Incremental Timestamp Method") or ""
+            method_norm = method_raw.upper().replace("-", "_")
+            inc_ts_field_raw = _p(param_data, "Incremental Timestamp Field")
+            
+            # tolerate both single- and double-space variants
+            header_link = _p(param_data, "Incremental Header To Tables Link Field")
+            if not header_link:
+                header_link = _p(param_data, "Incremental Header To Tables  Link Field")
+
+            schedule = _p(param_data, "Schedule")
+            week_days = _p(param_data, "Week Days")
+            dates_of_month = _p(param_data, "Dates Of Month")
 
         try:
             dataset_modified_by_user = spark.sql("SELECT current_user() AS u").collect()[0]["u"]
@@ -187,17 +193,15 @@ def write_config(
             "dataset_id": dataset_id,
             "dataset_name": dataset_name,
             "source_database_name": db_name,
-            "load_type": param_data.get("Load Type") if not is_data_provisioning else None,
-            "is_enabled": True,
-            "pet_dataset_id": param_data.get("Pet Dataset ID"),
-            "incremental_timestamp_method": param_data.get("Incremental Timestamp Method") if not is_data_provisioning else None,
-            "incremental_timestamp_field": param_data.get("Incremental Timestamp Field") if not is_data_provisioning else None,
-            "incremental_header_to_tables_link_field": param_data.get(
-                "Incremental Header To Tables  Link Field"
-            ) if not is_data_provisioning else None,
-            "schedule": param_data.get("Schedule") if not is_data_provisioning else None,
-            "week_days": param_data.get("Week Days") if not is_data_provisioning else None,
-            "dates_of_month": param_data.get("Dates Of Month") if not is_data_provisioning else None,
+            "load_type": load_type,
+            "is_enabled": is_enabled,
+            "pet_dataset_id": pet_dataset_id,
+            "incremental_timestamp_method": method_norm,
+            "incremental_timestamp_field": inc_ts_field_raw,
+            "incremental_header_to_tables_link_field": header_link,
+            "schedule": schedule,
+            "week_days": week_days,
+            "dates_of_month": dates_of_month,
             "dataset_owner": dataset_owner,
             "modified_date": datetime.now(),
             "dataset_modified_by_user": dataset_modified_by_user,
@@ -207,6 +211,7 @@ def write_config(
             "stage": stage,
             "comments": comments,
         }
+
 
         config_schema = StructType(
             [
@@ -479,7 +484,7 @@ class PETFileLoader:
                 is_data_provisioning
             )
             results["config_written"] = bool(config_written)
-            raise ValueError(f"Stage: {stage}, Is Data Provisioning: {is_data_provisioning}")
+
             # 14) Write Input Schema
             stage_value = param_data.get("Stage") or stage
             write_input_fields_table(

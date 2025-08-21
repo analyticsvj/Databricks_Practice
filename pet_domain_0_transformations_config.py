@@ -7,7 +7,6 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,function to read file from S3 bucket location
 from __future__ import annotations
 
 import io
@@ -92,7 +91,6 @@ def open_excel(blob: bytes) -> pd.ExcelFile:
 
 # COMMAND ----------
 
-# DBTITLE 1,functions to write into - ctrl_dataset_config
 from __future__ import annotations
 import os
 from datetime import datetime
@@ -285,7 +283,6 @@ def write_config(
 
 # COMMAND ----------
 
-# DBTITLE 1,functions to write into - ctrl_dataset_input_fields
 def write_input_fields_table(spark: SparkSession, df: pd.DataFrame, dataset_id: str, stage: str) -> None:
     """
     Write Input Schema rows to pet.ctrl_dataset_input_fields:
@@ -336,7 +333,6 @@ def write_input_fields_table(spark: SparkSession, df: pd.DataFrame, dataset_id: 
 
 # COMMAND ----------
 
-# DBTITLE 1,loader function
 # ------------------------------------------------------------------------------
 # Loader class
 # ------------------------------------------------------------------------------

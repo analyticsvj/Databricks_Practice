@@ -1,12 +1,3 @@
-# Databricks notebook source
-# MAGIC %run ./metastore_helpers
-
-# COMMAND ----------
-
-# MAGIC %run ./pet_validators
-
-# COMMAND ----------
-
 from __future__ import annotations
 
 import io
@@ -91,7 +82,7 @@ def open_excel(blob: bytes) -> pd.ExcelFile:
 
 # COMMAND ----------
 
-from __future__ import annotations
+
 import os
 from datetime import datetime
 from typing import Optional, Dict
@@ -128,6 +119,7 @@ def write_config(
     db_name: str,
     last_process_map: dict,
     overwrite: bool,
+    is_data_provisioning: bool = False
 ) -> bool:
     """
     Write to pet.ctrl_dataset_config; merge last_process_datetime if dataset_id+stage exists.
@@ -154,28 +146,34 @@ def write_config(
 
         # 2) map values (all from sheets)
         dataset_name = spec_data.get("Dataset Name") or dataset_id
-        load_type = (_p(param_data, "Load Type") or "").upper()
         is_enabled = _to_bool(_p(param_data, "Is Enabled"))
         pet_dataset_id = _p(param_data, "Pet Dataset ID")
-        method_raw = _p(param_data, "Incremental Timestamp Method") or ""
-        method_norm = method_raw.upper().replace("-", "_")
-
-        inc_ts_field_raw = _p(param_data, "Incremental Timestamp Field")
-        # Normalize to leaf only (e.g., meta.event_received_ts -> event_received_ts)
-        inc_ts_field_norm = validate_and_normalize_incremental_timestamp_field(
-            spark, db_name, inc_ts_field_raw
-        )
-
-        # tolerate both single- and double-space variants
-        header_link = _p(param_data, "Incremental Header To Tables Link Field")
-        if not header_link:
-            header_link = _p(param_data, "Incremental Header To Tables  Link Field")
-
-        schedule = _p(param_data, "Schedule")
-        week_days = _p(param_data, "Week Days")
-        dates_of_month = _p(param_data, "Dates Of Month")
         dataset_owner = _p(param_data, "Dataset Owner")
         comments = _p(param_data, "Comments")
+        
+        # Skip these fields for data provisioning
+        if is_data_provisioning:
+            load_type = None
+            method_norm = None
+            inc_ts_field_raw = None
+            header_link = None
+            schedule = None
+            week_days = None
+            dates_of_month = None
+        else:
+            load_type = (_p(param_data, "Load Type") or "").upper()
+            method_raw = _p(param_data, "Incremental Timestamp Method") or ""
+            method_norm = method_raw.upper().replace("-", "_")
+            inc_ts_field_raw = _p(param_data, "Incremental Timestamp Field")
+            
+            # tolerate both single- and double-space variants
+            header_link = _p(param_data, "Incremental Header To Tables Link Field")
+            if not header_link:
+                header_link = _p(param_data, "Incremental Header To Tables  Link Field")
+
+            schedule = _p(param_data, "Schedule")
+            week_days = _p(param_data, "Week Days")
+            dates_of_month = _p(param_data, "Dates Of Month")
 
         try:
             dataset_modified_by_user = spark.sql("SELECT current_user() AS u").collect()[0]["u"]
@@ -190,7 +188,7 @@ def write_config(
             "is_enabled": is_enabled,
             "pet_dataset_id": pet_dataset_id,
             "incremental_timestamp_method": method_norm,
-            "incremental_timestamp_field": inc_ts_field_norm,
+            "incremental_timestamp_field": inc_ts_field_raw,
             "incremental_header_to_tables_link_field": header_link,
             "schedule": schedule,
             "week_days": week_days,
@@ -204,6 +202,7 @@ def write_config(
             "stage": stage,
             "comments": comments,
         }
+
 
         config_schema = StructType(
             [
@@ -435,7 +434,7 @@ class PETFileLoader:
                     .replace("", pd.NA).dropna().unique().tolist()
                 )
 
-            # 9) Validate Input Schema fully (per-row DB/table/column)
+            # 9) Validate Input Schema fully (per-row DB/table/column).
             cleaned_input_fields_df, unique_db_tables = validate_input_fields(
                 self.spark, raw_input_df, db_name
             )
@@ -445,23 +444,24 @@ class PETFileLoader:
                 self.spark, param_data, db_name, stage, input_schema_tables=unique_db_tables
             )
 
-            # 11) Normalize/validate Incremental Timestamp Field
-            normalized_ts = validate_and_normalize_incremental_timestamp_field(
-                self.spark,
-                db_name,
-                param_data.get("Incremental Timestamp Field"),
-                candidate_tables=candidate_tables
-            )
-            param_data["Incremental Timestamp Field"] = normalized_ts
+            # 11-12) Skip incremental processing for Data-Provisioning stage
+            is_data_provisioning = stage.upper() == "DATA-PROVISIONING"
 
-            # 12) last_process_map
-            last_process_map = get_last_process_map(
-                self.spark,
-                dataset_id,
-                stage,
-                param_data.get("Start Process From Date"),
-                cleaned_input_fields_df
-            )
+            
+            if not is_data_provisioning:
+                
+                # Normalize/validate Incremental Timestamp Field
+                normalized_ts = validate_and_normalize_incremental_timestamp_field(
+                    self.spark, db_name, param_data.get("Incremental Timestamp Field"), candidate_tables=candidate_tables
+                )
+                param_data["Incremental Timestamp Field"] = normalized_ts
+                
+                # Generate last_process_map
+                last_process_map = get_last_process_map(
+                    self.spark, dataset_id,stage, param_data.get("Start Process From Date"), cleaned_input_fields_df
+                )
+            else:
+                last_process_map = {}
 
             # 13) Write config
             config_written = write_config(
@@ -471,7 +471,8 @@ class PETFileLoader:
                 param_data,
                 db_name,
                 last_process_map,
-                overwrite
+                overwrite,
+                is_data_provisioning
             )
             results["config_written"] = bool(config_written)
 

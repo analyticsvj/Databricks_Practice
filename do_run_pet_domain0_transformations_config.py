@@ -1,5 +1,4 @@
 # Databricks notebook source
-# Databricks Runner Notebook.
 dbutils.widgets.text("dataset_id", "")
 dbutils.widgets.text("source_file_path", "")
 dbutils.widgets.dropdown("stage", "Data-Provisioning", ["Data-Provisioning", "Domain-0-Transformation"])
@@ -12,9 +11,8 @@ overwrite = dbutils.widgets.get("overwrite")
 
 print(f"Running Loader for dataset: {dataset_id}, stage: {stage}, overwrite: {overwrite}")
 
-# Run main loader notebook
 result = dbutils.notebook.run(
-    "pet_domain_0_transformations_config",      
+    "pet_domain_0_transformations_config",
     timeout_seconds=0,
     arguments={
         "dataset_id": dataset_id,

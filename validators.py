@@ -210,15 +210,65 @@ def validate_database_name(spark: SparkSession, param_data: dict) -> str:
         raise ValueError(f"Database '{db_name}' not found")
     return db_name
 
-def validate_input_fields(spark: SparkSession, input_fields_df, db_name: str) -> None:
-    """Validate that all input fields exist in the database tables."""
-    # Clean up the dataframe - use a copy to avoid modifying the original
-    df_copy = input_fields_df.copy()
-    df_copy = df_copy.iloc[:, :2].dropna(how="all")
-    df_copy.columns = [col.strip() for col in df_copy.columns]
-    
-    for _, row in df_copy.iterrows():
-        table = str(row["Table Name"]).strip()
-        column = str(row["Column Name"]).strip()
+def validate_input_fields(
+    spark: SparkSession,
+    input_fields_df: pd.DataFrame,
+    default_db_name: str
+) -> Tuple[pd.DataFrame, List[Tuple[str, str]]]:
+    """
+    Validates 'Input Schema' (Database Name, Table Name, Column Name).
+    - Blank Database Name falls back to DPS-CDP default_db_name
+    - Validates database/table/column (supports struct with dot-notation)
+    - Preserves the original order from the Excel file
+    Returns:
+      - cleaned DataFrame with the 3 columns in original order
+      - list of unique (db, table) tuples
+    """
+    if input_fields_df is None or input_fields_df.empty:
+        raise ValueError("Input Schema sheet is empty.")
+
+    df = input_fields_df.iloc[:, :3].copy().dropna(how="all")
+    df.columns = [str(c).strip() for c in df.columns]
+
+    required_cols = {"Database Name", "Table Name", "Column Name"}
+    missing = required_cols - set(df.columns)
+    if missing:
+        raise ValueError(f"Input Schema is missing required columns: {missing}")
+
+    df["Database Name"] = df["Database Name"].apply(lambda x: str(x).strip() if pd.notnull(x) else "")
+    df["Table Name"]   = df["Table Name"].apply(lambda x: str(x).strip() if pd.notnull(x) else "")
+    df["Column Name"]  = df["Column Name"].apply(lambda x: str(x).strip() if pd.notnull(x) else "")
+
+    # Store original index to preserve order
+    original_order = []
+    unique_db_tables: set = set()
+
+    for idx, row in df.iterrows():
+        db_name = row["Database Name"] or (default_db_name or "")
+        table   = row["Table Name"]
+        column  = row["Column Name"]
+        row_no  = idx + 2  # excel header = 1
+
+        if not db_name:
+            raise ValueError(f"[Input Schema] Row {row_no}: 'Database Name' is empty and no default provided.")
+        if not table:
+            raise ValueError(f"[Input Schema] Row {row_no}: 'Table Name' is empty.")
+        if not column:
+            raise ValueError(f"[Input Schema] Row {row_no}: 'Column Name' is empty.")
+        if not check_database_exists(spark, db_name):
+            raise ValueError(f"[Input Schema] Row {row_no}: Database '{db_name}' not found.")
         if not check_table_and_column_exist(spark, db_name, table, column):
-            raise ValueError(f"Table or column not found: {db_name}.{table}.{column}")
+            raise ValueError(f"[Input Schema] Row {row_no}: Not found → {db_name}.{table}.{column}")
+
+        # Update the original dataframe with cleaned values
+        df.at[idx, "Database Name"] = db_name
+        df.at[idx, "Table Name"] = table
+        df.at[idx, "Column Name"] = column
+        
+        # Track unique combinations for validation
+        unique_db_tables.add((db_name, table))
+        original_order.append(idx)
+
+    # Return cleaned DataFrame in original order
+    cleaned_df = df.loc[original_order, ["Database Name", "Table Name", "Column Name"]].reset_index(drop=True)
+    return cleaned_df, list(unique_db_tables)

@@ -227,7 +227,8 @@ def validate_input_fields(
     if input_fields_df is None or input_fields_df.empty:
         raise ValueError("Input Schema sheet is empty.")
 
-    df = input_fields_df.iloc[:, :3].copy().dropna(how="all")
+    # Get first 3 columns and clean up
+    df = input_fields_df.iloc[:, :3].copy()
     df.columns = [str(c).strip() for c in df.columns]
 
     required_cols = {"Database Name", "Table Name", "Column Name"}
@@ -235,19 +236,33 @@ def validate_input_fields(
     if missing:
         raise ValueError(f"Input Schema is missing required columns: {missing}")
 
-    df["Database Name"] = df["Database Name"].apply(lambda x: str(x).strip() if pd.notnull(x) else "")
-    df["Table Name"]   = df["Table Name"].apply(lambda x: str(x).strip() if pd.notnull(x) else "")
-    df["Column Name"]  = df["Column Name"].apply(lambda x: str(x).strip() if pd.notnull(x) else "")
+    # Clean string values
+    df["Database Name"] = df["Database Name"].apply(lambda x: str(x).strip() if pd.notnull(x) and str(x).strip() else "")
+    df["Table Name"]   = df["Table Name"].apply(lambda x: str(x).strip() if pd.notnull(x) and str(x).strip() else "")
+    df["Column Name"]  = df["Column Name"].apply(lambda x: str(x).strip() if pd.notnull(x) and str(x).strip() else "")
 
-    # Store original index to preserve order
-    original_order = []
+    # Remove completely empty rows but preserve original position information
+    # Add original position tracking before removing empty rows
+    df = df.reset_index(drop=True)  # Reset index to get clean 0,1,2,3... indices
+    df['_original_position'] = df.index  # Track original position
+    
+    # Remove rows where all three key fields are empty
+    mask = (df["Database Name"] != "") | (df["Table Name"] != "") | (df["Column Name"] != "")
+    df = df[mask]
+    
+    if df.empty:
+        raise ValueError("Input Schema sheet has no valid data rows.")
+
+    # Process each row in order and collect validated results
+    validated_rows = []
     unique_db_tables: set = set()
 
-    for idx, row in df.iterrows():
+    for position, (idx, row) in enumerate(df.iterrows()):
         db_name = row["Database Name"] or (default_db_name or "")
         table   = row["Table Name"]
         column  = row["Column Name"]
-        row_no  = idx + 2  # excel header = 1
+        original_pos = row['_original_position']
+        row_no  = original_pos + 2  # excel header = row 1, so data starts at row 2
 
         if not db_name:
             raise ValueError(f"[Input Schema] Row {row_no}: 'Database Name' is empty and no default provided.")
@@ -260,15 +275,24 @@ def validate_input_fields(
         if not check_table_and_column_exist(spark, db_name, table, column):
             raise ValueError(f"[Input Schema] Row {row_no}: Not found → {db_name}.{table}.{column}")
 
-        # Update the original dataframe with cleaned values
-        df.at[idx, "Database Name"] = db_name
-        df.at[idx, "Table Name"] = table
-        df.at[idx, "Column Name"] = column
+        # Store validated row in order
+        validated_rows.append({
+            "Database Name": db_name,
+            "Table Name": table, 
+            "Column Name": column,
+            "_original_position": original_pos
+        })
         
         # Track unique combinations for validation
         unique_db_tables.add((db_name, table))
-        original_order.append(idx)
 
-    # Return cleaned DataFrame in original order
-    cleaned_df = df.loc[original_order, ["Database Name", "Table Name", "Column Name"]].reset_index(drop=True)
+    # Create result DataFrame preserving original order
+    if not validated_rows:
+        raise ValueError("No valid rows found in Input Schema.")
+    
+    # Sort by original position to maintain order, then remove position column
+    validated_df = pd.DataFrame(validated_rows)
+    validated_df = validated_df.sort_values('_original_position').reset_index(drop=True)
+    cleaned_df = validated_df[["Database Name", "Table Name", "Column Name"]]
+    
     return cleaned_df, list(unique_db_tables)

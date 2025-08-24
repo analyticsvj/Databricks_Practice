@@ -1,4 +1,3 @@
-# Databricks notebook source
 # pet_ctrl_objects_ddl.py
 # Non-UC (hive_metastore) & DBR 10.4-safe preflight/bootstrap using your helpers.
 from typing import List, Dict, Optional
@@ -206,8 +205,8 @@ if __name__ == "__main__":
                 {"name": "dataset_id", "type": "STRING", "nullable": False, "comment": "Lookup from config."},
                 {"name": "dataset_name", "type": "STRING", "nullable": False},
                 {"name": "source_database_name", "type": "STRING", "nullable": False},
-                {"name": "load_type", "type": "STRING", "nullable": False},
-                {"name": "is_enabled", "type": "BOOLEAN", "nullable": False},
+                {"name": "load_type", "type": "STRING"},
+                {"name": "is_enabled", "type": "BOOLEAN"},
                 {"name": "pet_dataset_id", "type": "STRING", "nullable": False},
                 {"name": "incremental_timestamp_method", "type": "STRING"},
                 {"name": "incremental_timestamp_field", "type": "STRING"},

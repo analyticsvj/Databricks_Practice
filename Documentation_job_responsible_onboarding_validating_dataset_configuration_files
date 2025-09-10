@@ -1,0 +1,144 @@
+📘 PET Domain-0 Transformation Config Loader
+🔎 Overview
+
+This job is responsible for onboarding and validating dataset configuration files (Excel-based specifications) for the PET platform. It ensures:
+
+Dataset parameters are correct (IDs, database names, schedule rules).
+
+Input schema fields are validated against the Hive Metastore.
+
+Incremental load parameters are enforced and normalized.
+
+Results are persisted into control tables:
+
+pet.ctrl_dataset_config
+
+pet.ctrl_dataset_input_fields
+
+This guarantees that all datasets follow a consistent, validated configuration before ingestion and transformation.
+
+📂 Job Components
+
+The job is composed of three notebooks/modules:
+
+do_run_pet_domain0_transformations_config_doc.py
+
+Role: Entry point / orchestration.
+
+Reads Databricks widgets (dataset_id, source_file_path, stage, overwrite).
+
+Calls the main loader notebook (pet_domain_0_transformations_config).
+
+Logs execution start and result.
+
+Example:
+result = dbutils.notebook.run(
+    "pet_domain_0_transformations_config",
+    arguments={"dataset_id": dataset_id, "source_file_path": source_file_path, "stage": stage, "overwrite": overwrite}
+)
+pet_config_validators_doc.py
+
+Role: Shared validation library.
+
+Provides reusable functions:
+
+File & sheet checks → validate_file_format, validate_required_sheets
+
+Dataset checks → validate_dataset_enabled, validate_dataset_name, validate_external_id
+
+Database & schema checks → validate_database_name, validate_input_fields, check_table_and_column_exist
+
+Schedule validation → validate_schedule_rules
+
+Incremental load checks → validate_dps_cdp_params, validate_and_normalize_incremental_timestamp_field
+
+Process state → get_last_process_map (merges last processed datetime with Start Process From Date)
+
+Ensures all configurations are consistent with PET standards and metastore.
+
+pet_domain_0_transformations_config_doc.py
+
+Role: Core loader implementation.
+
+Defines PETFileLoader class with LoadConfigurationsForDataset() method.
+
+Key steps:
+
+Validate file format (.xlsx/.xls).
+
+Fetch Excel file from S3 / DBFS.
+
+Verify required sheets (Specification, Input Schema, DPS-CDP Params).
+
+Parse specification (Dataset Name, IDs, ownership).
+
+Parse and validate DPS-CDP Params (stage, load type, incremental rules).
+
+Parse Input Schema, validate database/table/columns.
+
+Normalize incremental timestamp field.
+
+Build or merge last_process_map.
+
+Write dataset config to pet.ctrl_dataset_config.
+
+Write schema fields to pet.ctrl_dataset_input_fields.
+
+Return structured result (SUCCESS / FAILED, error details).
+
+Supports stages:
+
+Data-Provisioning
+
+Domain-0-Transformation
+
+Supports overwrite flag (delete+insert vs. merge-upsert).
+
+⚙️ Process Flow
+flowchart TD
+    A[Start Job] --> B[Databricks Widgets Input]
+    B --> C[Orchestrator Notebook<br/>do_run_pet_domain0_transformations_config]
+    C --> D[Main Loader<br/>pet_domain_0_transformations_config]
+    D --> E[Fetch Excel File<br/>(S3/DBFS)]
+    E --> F[Validate Required Sheets]
+    F --> G[Parse Specification & Params]
+    G --> H[Validate Dataset Enabled / Names / Stage / Schedule]
+    H --> I[Validate Database + Input Schema Fields]
+    I --> J[Check Incremental Timestamp Rules]
+    J --> K[Build Last Process Map]
+    K --> L[Write Config → pet.ctrl_dataset_config]
+    K --> M[Write Input Fields → pet.ctrl_dataset_input_fields]
+    L & M --> N[Return Result to Orchestrator]
+    N --> O[End Job]
+✅ Outputs
+
+Control Table Updates
+
+pet.ctrl_dataset_config: Stores dataset metadata, incremental strategy, schedule, and last process timestamps.
+
+pet.ctrl_dataset_input_fields: Stores validated schema field list per dataset and stage.
+
+Job Result JSON
+{
+  "dataset_id": "DPS_DIDS",
+  "status": "SUCCESS",
+  "errors": [],
+  "config_written": true,
+  "input_fields_written": true
+}
+
+🚨 Error Handling
+
+Validation failures (missing sheets, invalid schedule, nonexistent table/column, disabled dataset) are logged and returned in the job result.
+
+Config/input_fields writes are only attempted if validations succeed.
+
+Exceptions are captured with clear messages (e.g., “Not found → db.table.column”).
+
+🔮 Extensibility
+
+Additional validations can be added to pet_config_validators.
+
+New stages can be supported by extending PETFileLoader.
+
+Logging hooks exist for integration with central monitoring.

@@ -1,0 +1,42 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Flowchart" id="pet-domain0-job">
+    <mxGraphModel dx="1472" dy="859" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <!-- Nodes -->
+        <mxCell id="A" value="Start Job" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="60" y="40" width="120" height="40" as="geometry"/></mxCell>
+        <mxCell id="B" value="Databricks Widgets Input" style="rectangle;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="60" y="100" width="200" height="40" as="geometry"/></mxCell>
+        <mxCell id="C" value="Orchestrator Notebook (do_run_pet_domain0_transformations_config)" style="rectangle;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="60" y="160" width="360" height="60" as="geometry"/></mxCell>
+        <mxCell id="D" value="Main Loader (pet_domain_0_transformations_config)" style="rectangle;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="60" y="240" width="360" height="60" as="geometry"/></mxCell>
+        <mxCell id="E" value="Fetch Excel File (S3/DBFS)" style="rectangle;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="60" y="320" width="220" height="40" as="geometry"/></mxCell>
+        <mxCell id="F" value="Validate Required Sheets" style="rhombus;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="60" y="380" width="220" height="40" as="geometry"/></mxCell>
+        <mxCell id="G" value="Parse Specification &amp; Params" style="rectangle;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="60" y="440" width="260" height="40" as="geometry"/></mxCell>
+        <mxCell id="H" value="Validate Dataset Enabled / Names / Stage / Schedule" style="rhombus;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="60" y="500" width="380" height="60" as="geometry"/></mxCell>
+        <mxCell id="I" value="Validate Database + Input Schema Fields" style="rhombus;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="60" y="580" width="340" height="40" as="geometry"/></mxCell>
+        <mxCell id="J" value="Check Incremental Timestamp Rules" style="rhombus;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="60" y="640" width="300" height="40" as="geometry"/></mxCell>
+        <mxCell id="K" value="Build Last Process Map" style="rectangle;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="60" y="700" width="240" height="40" as="geometry"/></mxCell>
+        <mxCell id="L" value="Write Config - pet.ctrl_dataset_config" style="rectangle;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="10" y="760" width="300" height="40" as="geometry"/></mxCell>
+        <mxCell id="M" value="Write Input Fields - pet.ctrl_dataset_input_fields" style="rectangle;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="340" y="760" width="340" height="40" as="geometry"/></mxCell>
+        <mxCell id="N" value="Return Result to Orchestrator" style="rectangle;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="60" y="820" width="280" height="40" as="geometry"/></mxCell>
+        <mxCell id="O" value="End Job" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1"><mxGeometry x="60" y="880" width="120" height="40" as="geometry"/></mxCell>
+        <!-- Edges -->
+        <mxCell id="AB" edge="1" parent="1" source="A" target="B"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="BC" edge="1" parent="1" source="B" target="C"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="CD" edge="1" parent="1" source="C" target="D"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="DE" edge="1" parent="1" source="D" target="E"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="EF" edge="1" parent="1" source="E" target="F"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="FG" edge="1" parent="1" source="F" target="G"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="GH" edge="1" parent="1" source="G" target="H"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="HI" edge="1" parent="1" source="H" target="I"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="IJ" edge="1" parent="1" source="I" target="J"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="JK" edge="1" parent="1" source="J" target="K"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="KL" edge="1" parent="1" source="K" target="L"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="KM" edge="1" parent="1" source="K" target="M"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="LN" edge="1" parent="1" source="L" target="N"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="MN" edge="1" parent="1" source="M" target="N"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="NO" edge="1" parent="1" source="N" target="O"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
